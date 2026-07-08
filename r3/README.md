@@ -15,6 +15,8 @@ before we burn one of our 10-per-hour submission slots on it.
 | `llm_judge.py` | Scores `results.json` against `eval_set.json`. Two backends: `heuristic` (offline, no API key, rough — today's default) and `llm` (real LLM-as-judge call, mirrors the actual accuracy gate — switch to this once Fireworks creds exist). |
 | `token_report.py` | Sums per-task token usage (if the agent module reports it) into a per-category and total token count, so we can watch token cost trend down as R2 tunes things. |
 | `run_eval.py` | Runs all three of the above in sequence. This is the one command to run before every real submission. |
+| `PRESUBMIT_CHECKLIST.md` | Human-readable checklist mapping every guide rule to a check, organized by I/O contract / runtime / Fireworks rules / anti-hardcoding / submission process. |
+| `preflight_check.py` | Automates as much of the checklist as a script can: contract validation, JSON schema, runtime, a static source scan for hardcoded keys/models/endpoint bypasses, Dockerfile checks (once one exists), and category coverage. Exits non-zero if anything FAILs — treat that as "do not submit yet." |
 
 ## How to run it right now
 
@@ -49,9 +51,15 @@ is fake) and a token report.
 
 - [x] Phase 1: local harness built, 32-task eval set drafted, scoring
       skeleton (heuristic backend) working end-to-end
+- [x] Pre-submission checklist + automated preflight script drafted early
+      (normally Phase 5/6, pulled forward since it only depends on the
+      published rules, not on R1/R2's code)
 - [ ] Phase 2: wire the real LLM-judge backend once Fireworks creds exist
 - [ ] Phase 3: expand eval set with harder/reworded variants per category
 - [ ] Phase 4: token leaderboard tracking as R2 tunes prompts
-- [ ] Phase 5: dress rehearsal — run this against the actual built Docker
-      image, not just a Python module
-- [ ] Phase 6: final pre-submission checklist sign-off
+- [ ] Phase 5: dress rehearsal — run `preflight_check.py` against the actual
+      built Docker image + Dockerfile (`--dockerfile`, `--image` flags), not
+      just the Python module
+- [ ] Phase 6: final pre-submission checklist sign-off — go through
+      `PRESUBMIT_CHECKLIST.md` by hand for the items the script can't check
+      (e.g. a clean-machine `docker pull` test)
