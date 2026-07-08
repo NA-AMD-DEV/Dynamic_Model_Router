@@ -1,0 +1,226 @@
+[
+  {
+    "task_id": "fact-01",
+    "category": "factual_knowledge",
+    "prompt": "What is the capital of Australia, and what body of water is it near?",
+    "expected_intent": "Answer must name Canberra as the capital and mention it is near/on Lake Burley Griffin (not Sydney/Sydney Harbour).",
+    "expected_answer": null
+  },
+  {
+    "task_id": "fact-02",
+    "category": "factual_knowledge",
+    "prompt": "Explain what photosynthesis is in two sentences.",
+    "expected_intent": "Must describe plants converting light energy (usually sunlight) plus water and CO2 into glucose/energy and oxygen, in roughly two sentences.",
+    "expected_answer": null
+  },
+  {
+    "task_id": "fact-03",
+    "category": "factual_knowledge",
+    "prompt": "What causes the seasons on Earth?",
+    "expected_intent": "Must attribute seasons to Earth's axial tilt (~23.5 degrees) relative to its orbit around the Sun, not distance from the Sun.",
+    "expected_answer": null
+  },
+  {
+    "task_id": "fact-04",
+    "category": "factual_knowledge",
+    "prompt": "Who wrote the theory of general relativity and in what year was it published?",
+    "expected_intent": "Must name Albert Einstein and give 1915 (or 1915-1916) as the publication year.",
+    "expected_answer": null
+  },
+  {
+    "task_id": "math-01",
+    "category": "mathematical_reasoning",
+    "prompt": "A store has 240 items. It sells 15% on Monday and 60 more on Tuesday. How many items remain?",
+    "expected_intent": "Correct final number with reasoning: 240 - 36 (15% of 240) - 60 = 144 items remain.",
+    "expected_answer": "144"
+  },
+  {
+    "task_id": "math-02",
+    "category": "mathematical_reasoning",
+    "prompt": "A train travels 60 km in 45 minutes. At the same speed, how long will it take to travel 180 km? Answer in minutes.",
+    "expected_intent": "Correct answer is 135 minutes (speed = 80 km/h, 180 km takes 2.25 hours = 135 minutes).",
+    "expected_answer": "135"
+  },
+  {
+    "task_id": "math-03",
+    "category": "mathematical_reasoning",
+    "prompt": "If a rectangular garden is 12 meters long and 8 meters wide, and you want to build a fence around it plus one extra meter of gate overlap, how many meters of fencing do you need?",
+    "expected_intent": "Perimeter = 2*(12+8) = 40, plus 1 meter overlap = 41 meters.",
+    "expected_answer": "41"
+  },
+  {
+    "task_id": "math-04",
+    "category": "mathematical_reasoning",
+    "prompt": "A projection assumes 8% monthly growth starting from 500 users. How many users are projected after 3 months (rounded to nearest whole number)?",
+    "expected_intent": "500 * 1.08^3 = ~629.86, rounds to 630.",
+    "expected_answer": "630"
+  },
+  {
+    "task_id": "sent-01",
+    "category": "sentiment_classification",
+    "prompt": "Classify the sentiment of this review and justify it: 'The battery life is great, but the screen scratches too easily.'",
+    "expected_intent": "Should classify as mixed/neutral (or note both positive and negative aspects) with justification referencing battery life (positive) and screen durability (negative). Should not be a flat single-word 'positive' or 'negative' without acknowledging both sides.",
+    "expected_answer": null
+  },
+  {
+    "task_id": "sent-02",
+    "category": "sentiment_classification",
+    "prompt": "Classify the sentiment: 'I waited 45 minutes for cold food and the staff never apologized.'",
+    "expected_intent": "Should classify as negative, justification referencing the wait time, cold food, and lack of apology.",
+    "expected_answer": "negative"
+  },
+  {
+    "task_id": "sent-03",
+    "category": "sentiment_classification",
+    "prompt": "Classify the sentiment: 'Honestly this is the best purchase I've made all year, works perfectly every time.'",
+    "expected_intent": "Should classify as positive, justification referencing the strong praise and reliability.",
+    "expected_answer": "positive"
+  },
+  {
+    "task_id": "sent-04",
+    "category": "sentiment_classification",
+    "prompt": "Classify the sentiment: 'It's fine, does what it says on the box, nothing more nothing less.'",
+    "expected_intent": "Should classify as neutral, justification referencing the lukewarm/unremarkable tone.",
+    "expected_answer": "neutral"
+  },
+  {
+    "task_id": "sum-01",
+    "category": "text_summarisation",
+    "prompt": "Summarize the following in exactly one sentence: 'The city council voted 6-3 on Tuesday to approve a new light rail extension connecting the downtown business district to the northern suburbs. Construction is expected to begin in early 2027 and take approximately three years, with an estimated cost of 480 million dollars funded jointly by state and federal grants. Supporters say it will reduce traffic congestion, while critics have raised concerns about the budget and disruption during construction.'",
+    "expected_intent": "Single sentence capturing: council approved (6-3) a light rail extension from downtown to northern suburbs, starting 2027, ~3 years, ~$480M, with both support and criticism noted or at least the core approval fact. Must be exactly one sentence.",
+    "expected_answer": null
+  },
+  {
+    "task_id": "sum-02",
+    "category": "text_summarisation",
+    "prompt": "Summarize the following in exactly one sentence: 'Researchers at a university lab announced a new battery chemistry that reportedly charges to 80 percent capacity in under ten minutes while retaining over 90 percent of its capacity after 1000 charge cycles. The team says the technology could reach commercial electric vehicles within five years, though independent verification and large-scale manufacturing remain open challenges.'",
+    "expected_intent": "Single sentence capturing: new battery chemistry charges to 80% in under 10 minutes, retains 90%+ capacity after 1000 cycles, possible EV use within 5 years, pending verification/manufacturing challenges.",
+    "expected_answer": null
+  },
+  {
+    "task_id": "sum-03",
+    "category": "text_summarisation",
+    "prompt": "Summarize the following passage in no more than 15 words: 'The annual music festival drew record crowds this year, with organizers reporting over 200,000 attendees across three days despite heavy rain on the final day. Local businesses reported a significant boost in revenue.'",
+    "expected_intent": "Must be 15 words or fewer, capturing record 200,000+ attendance over three days, rain on final day, and local business revenue boost.",
+    "expected_answer": null
+  },
+  {
+    "task_id": "sum-04",
+    "category": "text_summarisation",
+    "prompt": "Summarize the following in exactly two sentences: 'A new study tracked 5,000 participants over ten years and found that people who walked at least 7,000 steps a day had a significantly lower risk of early death compared to those who walked fewer than 4,000 steps. The benefit plateaued after about 10,000 steps, suggesting diminishing returns beyond that point.'",
+    "expected_intent": "Exactly two sentences capturing: 10-year study of 5,000 people found 7,000+ daily steps linked to lower early death risk vs under 4,000 steps, with benefits plateauing around 10,000 steps.",
+    "expected_answer": null
+  },
+  {
+    "task_id": "ner-01",
+    "category": "named_entity_recognition",
+    "prompt": "Extract all named entities and their types from: 'Maria Sanchez joined Fireworks AI in Berlin last March.'",
+    "expected_intent": "Must extract: Maria Sanchez (PERSON), Fireworks AI (ORG), Berlin (LOCATION), last March (DATE). All four entities with correct types.",
+    "expected_answer": null
+  },
+  {
+    "task_id": "ner-02",
+    "category": "named_entity_recognition",
+    "prompt": "Extract all named entities and their types from: 'On July 4th, President Okafor met with representatives from the United Nations in Geneva to discuss the new climate accord.'",
+    "expected_intent": "Must extract: July 4th (DATE), Okafor / President Okafor (PERSON), United Nations (ORG), Geneva (LOCATION). Climate accord may optionally be tagged as an event/misc, but the four core entities must be present with correct types.",
+    "expected_answer": null
+  },
+  {
+    "task_id": "ner-03",
+    "category": "named_entity_recognition",
+    "prompt": "Extract all named entities and their types from: 'Amazon announced last Friday that its Seattle headquarters will expand, according to CEO spokesperson Dana Wu.'",
+    "expected_intent": "Must extract: Amazon (ORG), last Friday (DATE), Seattle (LOCATION), Dana Wu (PERSON). All four with correct types.",
+    "expected_answer": null
+  },
+  {
+    "task_id": "ner-04",
+    "category": "named_entity_recognition",
+    "prompt": "Extract all named entities and their types from: 'The conference, hosted by MIT in Cambridge, will feature a keynote from Dr. Elena Petrov on March 3rd.'",
+    "expected_intent": "Must extract: MIT (ORG), Cambridge (LOCATION), Dr. Elena Petrov / Elena Petrov (PERSON), March 3rd (DATE). All four with correct types.",
+    "expected_answer": null
+  },
+  {
+    "task_id": "debug-01",
+    "category": "code_debugging",
+    "prompt": "This function should return the max of a list but has a bug: def get_max(nums): return nums[0]. Find and fix it.",
+    "expected_intent": "Must identify that the function only returns the first element instead of finding the maximum, and provide a corrected implementation (e.g. using max(nums) or a loop comparing elements) that actually returns the largest value.",
+    "expected_answer": null
+  },
+  {
+    "task_id": "debug-02",
+    "category": "code_debugging",
+    "prompt": "Find and fix the bug: def is_even(n): return n % 2 == 1",
+    "expected_intent": "Must identify the condition is inverted (checks for odd, not even) and fix it to 'n % 2 == 0'.",
+    "expected_answer": null
+  },
+  {
+    "task_id": "debug-03",
+    "category": "code_debugging",
+    "prompt": "Find and fix the bug: def average(nums): total = 0\\n for n in nums:\\n  total += n\\n return total / len(num)",
+    "expected_intent": "Must identify the typo/undefined variable 'num' should be 'nums' (and ideally note division-by-zero risk for empty lists), and provide corrected code.",
+    "expected_answer": null
+  },
+  {
+    "task_id": "debug-04",
+    "category": "code_debugging",
+    "prompt": "Find and fix the bug: def reverse_string(s): return s[::-2]",
+    "expected_intent": "Must identify the slice step should be -1, not -2 (which skips characters), and correct it to s[::-1].",
+    "expected_answer": null
+  },
+  {
+    "task_id": "logic-01",
+    "category": "logical_reasoning",
+    "prompt": "Three friends, Sam, Jo, and Lee, each own a different pet: cat, dog, bird. Sam does not own the bird. Jo owns the dog. Who owns the cat?",
+    "expected_intent": "Correct deduction: Jo owns dog, Sam does not own bird so Sam owns cat, therefore Lee owns bird. Answer: Sam owns the cat.",
+    "expected_answer": "Sam"
+  },
+  {
+    "task_id": "logic-02",
+    "category": "logical_reasoning",
+    "prompt": "Four coworkers, Ana, Ben, Cid, and Dee, sit in a row of four desks numbered 1 to 4. Ana sits immediately left of Ben. Cid sits at desk 4. Dee does not sit at desk 1. Who sits at desk 1?",
+    "expected_intent": "Correct deduction: Cid=4. Dee cannot be 1, so Dee is 2 or 3. Ana immediately left of Ben means they occupy consecutive desks among {1,2,3}. Testing: if Ana=1,Ben=2, Dee must be 3, Cid=4 -- valid. So Ana sits at desk 1.",
+    "expected_answer": "Ana"
+  },
+  {
+    "task_id": "logic-03",
+    "category": "logical_reasoning",
+    "prompt": "All engineers at this company know Python. Some engineers know Rust. Maya knows Rust but not Python. Is Maya an engineer? Explain.",
+    "expected_intent": "Correct deduction: since all engineers know Python, and Maya does not know Python, Maya cannot be an engineer. Must explain the logical contradiction, not just guess.",
+    "expected_answer": "No"
+  },
+  {
+    "task_id": "logic-04",
+    "category": "logical_reasoning",
+    "prompt": "A box contains only red and blue balls. If you remove one ball at random it is twice as likely to be red as blue. If there are 18 balls total, how many are red?",
+    "expected_intent": "Red:Blue ratio is 2:1, total parts = 3, 18/3=6 per part, so red = 12, blue = 6. Answer: 12 red balls.",
+    "expected_answer": "12"
+  },
+  {
+    "task_id": "gen-01",
+    "category": "code_generation",
+    "prompt": "Write a Python function that returns the second-largest number in a list, handling duplicates correctly.",
+    "expected_intent": "Must provide a correct, runnable Python function that returns the second-largest distinct value (e.g. dedupe via set then sort, or track two running maxima), correctly handling duplicate values (e.g. [5,5,3] should return 3, not 5).",
+    "expected_answer": null
+  },
+  {
+    "task_id": "gen-02",
+    "category": "code_generation",
+    "prompt": "Write a Python function that checks whether a given string is a palindrome, ignoring spaces, punctuation, and capitalization.",
+    "expected_intent": "Must provide a correct function that normalizes the string (strip non-alphanumeric, lowercase) before checking equality with its reverse.",
+    "expected_answer": null
+  },
+  {
+    "task_id": "gen-03",
+    "category": "code_generation",
+    "prompt": "Write a Python function that takes a list of dictionaries each with a 'name' and 'score' key, and returns the names sorted by score descending.",
+    "expected_intent": "Must provide a correct function using something like sorted(..., key=lambda x: x['score'], reverse=True) and extracting names, returning a list of names in descending score order.",
+    "expected_answer": null
+  },
+  {
+    "task_id": "gen-04",
+    "category": "code_generation",
+    "prompt": "Write a Python function that merges two sorted lists of integers into a single sorted list without using the built-in sort function.",
+    "expected_intent": "Must provide a correct merge-style function (two-pointer technique) that merges two sorted lists in O(n+m) without calling sort()/sorted() on the result.",
+    "expected_answer": null
+  }
+]
