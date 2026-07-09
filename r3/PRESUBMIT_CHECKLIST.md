@@ -22,6 +22,13 @@ everything else is a manual look.
   - Why: malformed JSON → entire submission scores zero, not just one task
 - [ ] Container still writes a (possibly empty) answer for a task that errors internally — never silently drops a task_id
 
+## 1a. Accuracy gate (confirmed by organizers)
+
+- [ ] **Overall accuracy is at or above 80%** — this is the real, confirmed gate. Below it, the submission does not appear on the leaderboard regardless of token count.
+  - `llm_judge.py` now prints an explicit CLEARS/BELOW gate line and writes `clears_gate` to `score_report.json` — check this directly, don't eyeball the percentage.
+- [ ] Remember the real hidden evaluation set is exactly **19 fixed tasks** (every real score is n/19) — our 48-task practice set is our own tool for directional signal, not a preview of the real score. Don't be alarmed if local and real numbers don't match closely.
+- [ ] The real LLM judge is **not perfectly deterministic run-to-run** (organizer-confirmed, known tradeoff). If a submission's accuracy is close to the 80% line, don't trust a single run — re-run the check, and build in a safety margin rather than submitting right at the edge.
+
 ## 2. Runtime & platform
 
 - [ ] Container starts and is ready within 60 seconds
@@ -57,6 +64,7 @@ everything else is a manual look.
 - [ ] Docker image is pushed to a **public** registry and confirmed pullable (test with `docker pull <image>` from a clean/different machine or after `docker rmi` locally)
 - [ ] Staying within the 10-submissions-per-hour rate limit — don't burn slots on untested changes
 - [ ] Run the full `run_eval.py` pipeline one final time against the actual built image (not just the Python module) before submitting — see Phase 5 in the team README
+- [ ] After submitting, check your registry's download/pull counter (GitHub Packages, Docker Hub, etc.) — organizers confirmed this shows whether your image has actually been pulled for grading yet, useful while waiting during a backlog
 
 ## Quick automated pass
 

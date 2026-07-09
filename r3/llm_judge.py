@@ -215,6 +215,7 @@ def main():
     parser.add_argument("--results", default="results.json", help="Path to results.json produced by local_harness.py.")
     parser.add_argument("--backend", choices=["heuristic", "llm"], default="heuristic")
     parser.add_argument("--out", default="score_report.json", help="Where to write the per-category report.")
+    parser.add_argument("--gate", type=float, default=0.80, help="Real accuracy gate threshold, confirmed by organizers at 80%%. Below this, no leaderboard placement regardless of tokens.")
     args = parser.parse_args()
 
     with open(args.eval, "r") as f:
@@ -263,13 +264,30 @@ def main():
     overall_acc = round(total_passed / total_n, 3) if total_n else 0.0
 
     with open(args.out, "w") as f:
-        json.dump({"overall_accuracy": overall_acc, "per_category": report}, f, indent=2)
+        json.dump({
+            "overall_accuracy": overall_acc,
+            "accuracy_gate": args.gate,
+            "clears_gate": overall_acc >= args.gate,
+            "per_category": report,
+        }, f, indent=2)
 
     print(f"\n=== Accuracy report ({args.backend} backend) ===")
     for category, stats in report.items():
         flag = "  <-- WEAK" if stats["accuracy"] < 0.7 else ""
         print(f"  {category:28s}  {stats['passed']:2d}/{stats['n']:2d}  ({stats['accuracy']*100:5.1f}%){flag}")
     print(f"  {'OVERALL':28s}  {total_passed:2d}/{total_n:2d}  ({overall_acc*100:5.1f}%)")
+
+    gate_pass = overall_acc >= args.gate
+    print(f"\n{'='*50}")
+    if gate_pass:
+        print(f"CLEARS the {args.gate*100:.0f}% accuracy gate ({overall_acc*100:.1f}% >= {args.gate*100:.0f}%)")
+    else:
+        print(f"BELOW the {args.gate*100:.0f}% accuracy gate ({overall_acc*100:.1f}% < {args.gate*100:.0f}%) -- would NOT appear on the leaderboard regardless of token count")
+    print(f"{'='*50}")
+    print("NOTE: the real evaluation set is exactly 19 fixed tasks (score = n/19), NOT this")
+    print("48-task practice set. This local number is a directional signal, not the real score.")
+    print("Also note: organizers confirmed the real LLM judge isn't perfectly deterministic")
+    print("run-to-run -- if you're close to the gate, run this more than once before trusting it.")
     print(f"\nFull report written to {args.out}")
 
     if args.backend == "heuristic":

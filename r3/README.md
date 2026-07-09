@@ -5,6 +5,18 @@ eval set and scoring tools. Nothing here is submitted directly — it's the
 tooling that tells the team whether what R1/R2 build is actually good enough,
 before we burn one of our 10-per-hour submission slots on it.
 
+## Organizer clarifications (received Day 2)
+
+Straight from the hackathon organizers, relevant to R3's tooling and the whole team:
+
+- **Accuracy gate confirmed at 80%.** Below that, no leaderboard placement regardless of token count. `llm_judge.py` now checks this explicitly (`--gate 0.80` by default) and prints a clear CLEARS/BELOW line.
+- **The real hidden eval set is exactly 19 fixed tasks** — every real score is n/19. Our local 48-task practice set is intentionally separate and won't produce matching percentages; treat local scores as directional, not predictive of the exact real number.
+- **The real LLM judge isn't perfectly deterministic run-to-run** (organizer-confirmed). If a submission is close to the 80% line, don't trust one run — build in a safety margin.
+- **Fireworks credits are per-team**, sent as a coupon to the team's registered email within 2-3 business days of registration, redeemed at fire-pass. If R2 hasn't sent creds yet, this is likely why — worth checking whether the team's coupon has arrived yet.
+- **No separate "AMD cloud credits"** — compute is the team's Jupyter instance at notebooks.amd.com/hackathon (8h/day).
+- **Gemma models cost ~$7/hour even when idle** once deployed. If anyone (including R3, for local `JUDGE_MODEL` testing) deploys a Gemma model, undeploy it immediately after testing — it's shared team budget ($50 total) and idle time burns it fast.
+- **Registry pull counters** (GitHub Packages / Docker Hub download count) show whether the organizers have actually pulled your image yet — useful during grading backlogs, added to the checklist.
+
 ## Files
 
 | File | What it does |
