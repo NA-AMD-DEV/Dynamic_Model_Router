@@ -266,5 +266,139 @@
       {"call": "merge_sorted([],[1,2])", "expected": [1,2]},
       {"call": "merge_sorted([1,1,2],[1,3])", "expected": [1,1,1,2,3]}
     ]
+  },
+  {
+    "task_id": "fact-h01",
+    "category": "factual_knowledge",
+    "prompt": "Many people believe the Great Wall of China is visible from space with the naked eye. Is this true? Explain why or why not.",
+    "expected_intent": "Must correctly identify this as a myth/false -- the Great Wall is not visible to the naked eye from space (it's too narrow relative to viewing distance), unlike the common misconception. Should not affirm the myth as fact.",
+    "expected_answer": null
+  },
+  {
+    "task_id": "fact-h02",
+    "category": "factual_knowledge",
+    "prompt": "What's the difference between weather and climate, and why doesn't one unusually cold day disprove long-term warming trends?",
+    "expected_intent": "Must distinguish weather (short-term, local atmospheric conditions) from climate (long-term average patterns over decades), and explain that a single data point/event doesn't represent a long-term statistical trend.",
+    "expected_answer": null
+  },
+  {
+    "task_id": "math-h01",
+    "category": "mathematical_reasoning",
+    "prompt": "A company had 1,200 employees. After a round of layoffs, headcount dropped by 25%. The company then hired back 10% of the new (post-layoff) headcount. What is the final headcount?",
+    "expected_intent": "1200 * 0.75 = 900 after layoffs. 10% of 900 = 90 hired back. 900 + 90 = 990 final headcount. Must apply the 10% to the reduced headcount, not the original 1200 -- that's the trap this variant tests.",
+    "expected_answer": "990"
+  },
+  {
+    "task_id": "math-h02",
+    "category": "mathematical_reasoning",
+    "prompt": "You invest $2,000 at 5% annual interest, compounded annually. After how many whole years will the investment first exceed $2,500?",
+    "expected_intent": "2000 * 1.05^n > 2500 solves to n > ~4.57, so the first whole year it exceeds 2500 is year 5. Must reason about compounding, not simple interest (which would give a different, wrong answer).",
+    "expected_answer": "5"
+  },
+  {
+    "task_id": "sent-h01",
+    "category": "sentiment_classification",
+    "prompt": "Classify the sentiment, watch for sarcasm: 'Oh great, another software update that breaks three features to fix one.'",
+    "expected_intent": "Must recognize this as sarcastic and classify as negative, despite the surface-positive word 'great'. An agent that classifies this as positive because of the word 'great' has failed to detect sarcasm.",
+    "expected_answer": "negative"
+  },
+  {
+    "task_id": "sent-h02",
+    "category": "sentiment_classification",
+    "prompt": "Classify the sentiment: 'Not bad, actually kind of impressed, though I still think it's overpriced.'",
+    "expected_intent": "Should classify as mixed or leaning-positive-with-reservation, acknowledging both the genuine (if understated) approval and the price complaint. Should not be classified as flatly negative just because of the price complaint, nor flatly positive while ignoring it.",
+    "expected_answer": null
+  },
+  {
+    "task_id": "sum-h01",
+    "category": "text_summarisation",
+    "prompt": "Summarize the following in exactly one sentence, using no more than 25 words: 'A cybersecurity firm disclosed a vulnerability affecting millions of routers worldwide, allowing attackers to intercept unencrypted traffic. Patches were released within 48 hours, but experts estimate only 30 percent of affected devices will be updated within the first month due to poor consumer awareness.'",
+    "expected_intent": "Exactly one sentence, 25 words or fewer, capturing: router vulnerability affecting millions, patches released in 48 hours, but only ~30% of devices expected to be updated within a month.",
+    "expected_answer": null,
+    "constraints": {"sentence_count": 1, "max_words": 25}
+  },
+  {
+    "task_id": "sum-h02",
+    "category": "text_summarisation",
+    "prompt": "Summarize the following in exactly three sentences: 'Renewable energy adoption has accelerated across three regions over the past five years, but at very different rates. Region A, driven by strong government subsidies, now sources 45 percent of its electricity from renewables, up from 12 percent. Region B has grown more slowly, reaching 22 percent, hampered by outdated grid infrastructure that struggles to handle variable supply. Region C, despite abundant solar potential, remains at just 8 percent due to political instability discouraging long-term investment.'",
+    "expected_intent": "Exactly three sentences, one per region, capturing: Region A at 45% (up from 12%, subsidy-driven), Region B at 22% (slowed by grid infrastructure), Region C at 8% (held back by political instability despite solar potential).",
+    "expected_answer": null,
+    "constraints": {"sentence_count": 3}
+  },
+  {
+    "task_id": "ner-h01",
+    "category": "named_entity_recognition",
+    "prompt": "Extract all named entities and their types from: 'Dr. Aisha Bello, a researcher at Stanford University, presented findings in Tokyo during the G7 summit on September 12.'",
+    "expected_intent": "Must extract: Aisha Bello (PERSON), Stanford University (ORG), Tokyo (LOCATION), G7 (ORG/EVENT), September 12 (DATE).",
+    "expected_answer": null,
+    "expected_entities": ["Aisha Bello", "Stanford University", "Tokyo", "G7", "September 12"]
+  },
+  {
+    "task_id": "ner-h02",
+    "category": "named_entity_recognition",
+    "prompt": "Extract all named entities and their types from: 'Netflix's quarterly earnings call, led by co-CEO Ted Sarandos, revealed a 15 percent subscriber increase in Latin America since January.'",
+    "expected_intent": "Must extract: Netflix (ORG), Ted Sarandos (PERSON), Latin America (LOCATION), January (DATE). '15 percent' is a statistic, not a named entity, and should NOT be tagged as one -- this variant tests whether the agent over-extracts numbers as entities.",
+    "expected_answer": null,
+    "expected_entities": ["Netflix", "Ted Sarandos", "Latin America", "January"]
+  },
+  {
+    "task_id": "debug-h01",
+    "category": "code_debugging",
+    "prompt": "Find and fix the bug: def add_item(item, lst=[]): lst.append(item); return lst. Keep the function name add_item. Hint: think about what happens across multiple separate calls.",
+    "expected_intent": "Must identify the classic mutable-default-argument bug: the default list is created once and shared/persists across calls, causing items to silently accumulate across unrelated calls. Fix: use lst=None as the default and create a new list inside the function if lst is None.",
+    "expected_answer": null,
+    "test_cases": [
+      {"call": "add_item('a')", "expected": ["a"]},
+      {"call": "add_item('b')", "expected": ["b"]}
+    ]
+  },
+  {
+    "task_id": "debug-h02",
+    "category": "code_debugging",
+    "prompt": "Find and fix the off-by-one bug: def get_last_n(lst, n): return lst[len(lst)-n-1:]. Keep the function name get_last_n.",
+    "expected_intent": "Must identify the extra '-1' causes it to return one element too many, and fix the slice to lst[len(lst)-n:].",
+    "expected_answer": null,
+    "test_cases": [
+      {"call": "get_last_n([1,2,3,4,5], 2)", "expected": [4, 5]},
+      {"call": "get_last_n([1,2,3], 1)", "expected": [3]},
+      {"call": "get_last_n([1,2,3,4], 4)", "expected": [1, 2, 3, 4]}
+    ]
+  },
+  {
+    "task_id": "logic-h01",
+    "category": "logical_reasoning",
+    "prompt": "Five runners -- A, B, C, D, E -- finished a race with no ties. B finished immediately after A. E finished before D, and D finished before C. C did not finish last. Who finished last?",
+    "expected_intent": "Correct deduction: since E<D<C in finishing order and C cannot be last, the only consistent placement (testing all valid A-B consecutive pairs) is A=4th, B=5th, with E=1st, D=2nd, C=3rd. B finished last.",
+    "expected_answer": "B"
+  },
+  {
+    "task_id": "logic-h02",
+    "category": "logical_reasoning",
+    "prompt": "All squares are rectangles. Some rectangles are not blue. Can we therefore conclude that all squares are definitely not blue? Explain.",
+    "expected_intent": "Must recognize this is an invalid syllogism -- the premises give no information about whether squares specifically are blue or not, so 'all squares are not blue' does not logically follow. The correct answer is no / cannot conclude, with an explanation of why the reasoning is a fallacy, not just asserting an answer.",
+    "expected_answer": "No"
+  },
+  {
+    "task_id": "gen-h01",
+    "category": "code_generation",
+    "prompt": "Write a Python function named flatten_list that takes a nested list of arbitrary depth and returns a single flat list of all elements in order.",
+    "expected_intent": "Must correctly handle arbitrary nesting depth (not just one level), typically via recursion, preserving the original left-to-right order of elements.",
+    "expected_answer": null,
+    "test_cases": [
+      {"call": "flatten_list([1,[2,3],[4,[5,6]],7])", "expected": [1, 2, 3, 4, 5, 6, 7]},
+      {"call": "flatten_list([])", "expected": []},
+      {"call": "flatten_list([1,[2,[3,[4]]]])", "expected": [1, 2, 3, 4]}
+    ]
+  },
+  {
+    "task_id": "gen-h02",
+    "category": "code_generation",
+    "prompt": "Write a Python function named group_anagrams that takes a list of strings and returns a list of lists, grouping strings that are anagrams of each other together. Preserve original relative order within each group, and order the groups by when their first member first appeared in the input.",
+    "expected_intent": "Must correctly group anagrams (same letters, different arrangement) together, typically by sorting each word's letters as a grouping key, while preserving specified ordering rules.",
+    "expected_answer": null,
+    "test_cases": [
+      {"call": "group_anagrams(['eat','tea','tan','ate','nat','bat'])", "expected": [["eat", "tea", "ate"], ["tan", "nat"], ["bat"]]}
+    ]
   }
 ]
+

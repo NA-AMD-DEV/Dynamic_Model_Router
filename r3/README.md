@@ -55,8 +55,15 @@ is fake) and a token report.
 - [x] Pre-submission checklist + automated preflight script drafted early
       (normally Phase 5/6, pulled forward since it only depends on the
       published rules, not on R1/R2's code)
+- [x] Phase 3: expanded eval set to 48 tasks (6 per category) with harder/
+      reworded variants -- sarcasm detection, compounding math traps,
+      multi-constraint summaries, over-extraction traps in NER, subtle bugs
+      (mutable default args, off-by-one), a 5-entity logic puzzle, and
+      recursive/nested code generation. Verified with the good/bad agent
+      fixtures: 91.7% vs 10.4%, and the two riskiest new tasks (the mutable-
+      default-arg test and the 5-runner logic puzzle) were independently
+      solved/brute-forced to confirm correctness before trusting them.
 - [ ] Phase 2: wire the real LLM-judge backend once Fireworks creds exist
-- [ ] Phase 3: expand eval set with harder/reworded variants per category
 - [ ] Phase 4: token leaderboard tracking as R2 tunes prompts
 - [ ] Phase 5: dress rehearsal — run `preflight_check.py` against the actual
       built Docker image + Dockerfile (`--dockerfile`, `--image` flags), not

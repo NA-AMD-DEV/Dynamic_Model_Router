@@ -35,6 +35,22 @@ ANSWERS = {
     "gen-02": "```python\nimport re\ndef is_palindrome(s):\n    cleaned = re.sub(r'[^a-z0-9]', '', s.lower())\n    return cleaned == cleaned[::-1]\n```",
     "gen-03": "```python\ndef sort_names_by_score(data):\n    return [d['name'] for d in sorted(data, key=lambda x: x['score'], reverse=True)]\n```",
     "gen-04": "```python\ndef merge_sorted(a, b):\n    i, j, out = 0, 0, []\n    while i < len(a) and j < len(b):\n        if a[i] <= b[j]:\n            out.append(a[i]); i += 1\n        else:\n            out.append(b[j]); j += 1\n    out.extend(a[i:]); out.extend(b[j:])\n    return out\n```",
+    "fact-h01": "No, this is a myth. The Great Wall is too narrow to be seen with the naked eye from space; it's not actually visible without aid.",
+    "fact-h02": "Weather is short-term, local atmospheric conditions, while climate is the long-term average pattern over decades. A single cold day is just weather noise and doesn't reflect or disprove a long-term climate trend.",
+    "math-h01": "1200 * 0.75 = 900 after layoffs, then 10% of 900 = 90 hired back, so 900 + 90 = 990 final headcount.",
+    "math-h02": "2000 * 1.05^n exceeds 2500 at n = 5 years (1.05^4 is not enough, 1.05^5 is), so it takes 5 years.",
+    "sent-h01": "negative -- this is sarcastic, the agent is complaining about the update breaking features despite the surface-positive wording.",
+    "sent-h02": "mixed, leaning positive -- there's genuine (if understated) approval, but tempered by a price complaint.",
+    "sum-h01": "A router vulnerability affecting millions was patched within 48 hours, but only 30% of devices are expected to update within a month.",
+    "sum-h02": "Region A now sources 45 percent of its electricity from renewables, up from 12 percent, driven by subsidies. Region B has reached 22 percent, slowed by outdated grid infrastructure. Region C remains at just 8 percent due to political instability, despite strong solar potential.",
+    "ner-h01": "Aisha Bello (PERSON), Stanford University (ORG), Tokyo (LOCATION), G7 (EVENT/ORG), September 12 (DATE)",
+    "ner-h02": "Netflix (ORG), Ted Sarandos (PERSON), Latin America (LOCATION), January (DATE)",
+    "debug-h01": "```python\ndef add_item(item, lst=None):\n    if lst is None:\n        lst = []\n    lst.append(item)\n    return lst\n```",
+    "debug-h02": "```python\ndef get_last_n(lst, n):\n    return lst[len(lst)-n:]\n```",
+    "logic-h01": "B finished last. The only consistent placement has E=1st, D=2nd, C=3rd, A=4th, B=5th.",
+    "logic-h02": "No, we cannot conclude that. The premises say nothing about squares specifically being blue or not, so the conclusion doesn't logically follow.",
+    "gen-h01": "```python\ndef flatten_list(lst):\n    out = []\n    for item in lst:\n        if isinstance(item, list):\n            out.extend(flatten_list(item))\n        else:\n            out.append(item)\n    return out\n```",
+    "gen-h02": "```python\ndef group_anagrams(words):\n    groups = {}\n    order = []\n    for w in words:\n        key = ''.join(sorted(w))\n        if key not in groups:\n            groups[key] = []\n            order.append(key)\n        groups[key].append(w)\n    return [groups[k] for k in order]\n```",
 }
 
 
