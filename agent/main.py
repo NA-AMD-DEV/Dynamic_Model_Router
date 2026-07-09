@@ -14,6 +14,8 @@ import json
 import os
 import sys
 import time
+from collections import deque
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from pathlib import Path
 
 from agent.core import answer_task
@@ -24,6 +26,12 @@ OUTPUT_PATH = Path(os.environ.get("OUTPUT_PATH", "/output/results.json"))
 # The harness kills the run at 10 minutes. Stop starting new tasks with enough
 # slack left to serialise whatever we have.
 RUN_BUDGET_S = float(os.environ.get("RUN_BUDGET_S", 9 * 60 + 15))
+
+# Sequential by default: deterministic for R3's evals, and it keeps per-task
+# latency measurable for R2. Raise it only once real timings show the 10-minute
+# limit is in reach. Each worker is one in-flight Fireworks call, so this is
+# also the rate-limit blast radius.
+CONCURRENCY = max(1, int(os.environ.get("ROUTER_CONCURRENCY", "1")))
 
 # Anything we couldn't answer. An empty string is still valid JSON and still
 # gets judged; a missing task_id is not.
@@ -58,31 +66,100 @@ def run(tasks: list[dict]) -> dict[str, str]:
 
     started = time.monotonic()
     try:
-        for i, task in enumerate(tasks):
-            tid = task.get("task_id") or f"__missing_{i}"
-
-            elapsed = time.monotonic() - started
-            if elapsed > RUN_BUDGET_S:
-                print(
-                    f"run budget exhausted after {i}/{len(tasks)} tasks "
-                    f"({elapsed:.0f}s); remaining tasks keep the fallback answer",
-                    file=sys.stderr,
-                )
-                break
-
-            try:
-                answer = answer_task(task)
-            except Exception as exc:  # one bad task must not sink the batch
-                print(f"task {tid} failed: {exc!r}", file=sys.stderr)
-                continue
-
-            results[tid] = answer if isinstance(answer, str) else str(answer)
+        if CONCURRENCY > 1:
+            _run_concurrent(tasks, results, started)
+        else:
+            _run_sequential(tasks, results, started)
     finally:
         # Runs on a normal return, an unexpected raise, and on the
         # KeyboardInterrupt/SystemExit paths.
         write_results(OUTPUT_PATH, results)
 
     return results
+
+
+def _answer_one(task: dict, tid: str) -> str | None:
+    """Call the core for one task. Returns None if it failed."""
+    try:
+        answer = answer_task(task)
+    except Exception as exc:  # one bad task must not sink the batch
+        print(f"task {tid} failed: {exc!r}", file=sys.stderr)
+        return None
+    return answer if isinstance(answer, str) else str(answer)
+
+
+def _run_sequential(tasks: list[dict], results: dict[str, str], started: float) -> None:
+    for i, task in enumerate(tasks):
+        tid = task.get("task_id") or f"__missing_{i}"
+
+        elapsed = time.monotonic() - started
+        if elapsed > RUN_BUDGET_S:
+            print(
+                f"run budget exhausted after {i}/{len(tasks)} tasks "
+                f"({elapsed:.0f}s); remaining tasks keep the fallback answer",
+                file=sys.stderr,
+            )
+            return
+
+        answer = _answer_one(task, tid)
+        if answer is not None:
+            results[tid] = answer
+
+
+def _run_concurrent(tasks: list[dict], results: dict[str, str], started: float) -> None:
+    """Answer tasks in a thread pool. Ordering is safe: `results` was seeded in
+    input order and dicts preserve insertion order, so workers overwrite values
+    in place and never change the key sequence.
+
+    Threads (not processes) because the work is a blocking HTTPS call, and
+    CPython releases the GIL while waiting on the socket.
+    """
+    remaining = deque(
+        (task.get("task_id") or f"__missing_{i}", task)
+        for i, task in enumerate(tasks)
+    )
+    attempted = 0
+    out_of_time = False
+
+    with ThreadPoolExecutor(max_workers=CONCURRENCY) as pool:
+        pending: dict = {}
+        while remaining or pending:
+            # Top the pool up, unless the clock has run out. Tasks left in
+            # `remaining` keep their seeded fallback answer.
+            while remaining and len(pending) < CONCURRENCY:
+                if time.monotonic() - started > RUN_BUDGET_S:
+                    out_of_time = True
+                    break
+                tid, task = remaining.popleft()
+                pending[pool.submit(_answer_one, task, tid)] = tid
+                attempted += 1
+
+            if out_of_time:
+                # Drain in-flight work rather than abandoning it: those tokens
+                # are already spent, and the answers are still worth having.
+                remaining.clear()
+
+            if not pending:
+                break
+
+            # Wait on whichever worker finishes first, so the budget check
+            # above re-runs promptly rather than after the whole batch.
+            finished, _ = wait(pending, return_when=FIRST_COMPLETED)
+            for fut in finished:
+                tid = pending.pop(fut)
+                answer = fut.result()  # _answer_one swallowed any exception
+                if answer is not None:
+                    results[tid] = answer
+
+    # Only the clock abandons tasks. A task that was attempted and raised is
+    # already reported by _answer_one; don't blame the budget for it.
+    if out_of_time:
+        print(
+            f"run budget exhausted after dispatching {attempted}/{len(tasks)} tasks "
+            f"({time.monotonic() - started:.0f}s); "
+            "undispatched tasks keep the fallback answer",
+            file=sys.stderr,
+        )
 
 
 def main() -> int:
