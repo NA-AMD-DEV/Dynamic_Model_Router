@@ -1,0 +1,13 @@
+.git/
+.gitignore
+*.md
+*.html
+.env
+.env.*
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+fixtures/
+out/
