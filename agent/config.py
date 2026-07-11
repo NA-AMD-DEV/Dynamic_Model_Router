@@ -81,9 +81,18 @@ def _override_int(category: str, field: str, fallback: int) -> int:
 
 
 # R2: tune these. The 8 keys are the official hackathon categories — keep them
-# in sync with agent/routing.py's PRIORITY list. Cheap categories get tiny
-# budgets; code and multi-step reasoning need headroom. model_index is an
-# offset into ALLOWED_MODELS (0 = cheapest, not an ID).
+# in sync with agent/routing.py's PRIORITY list.
+#
+# model_index defaults to 0 for EVERY category on purpose: the harness does not
+# promise ALLOWED_MODELS is ordered by capability, so we make no assumption
+# about which injected model is "stronger". Index 0 is just "the first model
+# they gave us", and it always exists. Once R2 has MEASURED which model each
+# category needs (via `python -m eval.score`), point specific categories at a
+# different one with a per-category override — no ordering assumption, no
+# rebuild:  ROUTER_<CATEGORY>_MODEL=<exact id>  or  ROUTER_<CATEGORY>_MODEL_INDEX=n
+#
+# Token budgets DO differ by category (cheap asks get tiny caps; code and
+# multi-step reasoning need headroom) — that's a safe, model-independent lever.
 _DEFAULTS: dict[str, _Default] = {
     "factual_knowledge": _Default(
         0,
@@ -92,7 +101,7 @@ _DEFAULTS: dict[str, _Default] = {
         150,
     ),
     "math_reasoning": _Default(
-        1,
+        0,
         "Solve the problem step by step internally, but output ONLY the final "
         "numeric or short answer. Do not show your work. Answer only.",
         200,
@@ -117,19 +126,19 @@ _DEFAULTS: dict[str, _Default] = {
         120,
     ),
     "code_debugging": _Default(
-        1,
+        0,
         "Find the bug and return ONLY the corrected, complete function in a single "
         "code block. No explanation, no prose before or after.",
         400,
     ),
     "logical_reasoning": _Default(
-        1,
+        0,
         "Solve the constraint puzzle. Verify all conditions are satisfied internally, "
         "but output ONLY the final answer. No reasoning shown.",
         200,
     ),
     "code_generation": _Default(
-        1,
+        0,
         "Write the function exactly as specified. Return ONLY a single code block "
         "with the complete, correct implementation. No explanation.",
         400,

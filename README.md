@@ -122,7 +122,9 @@ python -m pytest tests/ -q
 
 ### Token-efficiency knobs (per category, no rebuild)
 
-R2 tunes without editing code: `ROUTER_<CATEGORY>_MODEL`, `ROUTER_<CATEGORY>_MODEL_INDEX`, `ROUTER_<CATEGORY>_MAX_TOKENS`, `ROUTER_<CATEGORY>_SYSTEM`. Example: `ROUTER_CODE_GENERATION_MAX_TOKENS=256`. Set `ROUTER_CONCURRENCY=N` to parallelise (default 1; each worker is one in-flight call, so it's also the rate-limit blast radius).
+Every category defaults to `ALLOWED_MODELS[0]` — the agent makes **no assumption** about the injected list's order or which model is "stronger", since the harness doesn't promise one. R2 points a category at a specific model only after measuring, via `ROUTER_<CATEGORY>_MODEL=<exact id>` (or `ROUTER_<CATEGORY>_MODEL_INDEX=n`). Other per-category knobs: `ROUTER_<CATEGORY>_MAX_TOKENS`, `ROUTER_<CATEGORY>_SYSTEM`. Example: `ROUTER_CODE_GENERATION_MAX_TOKENS=256`.
+
+All three of `FIREWORKS_API_KEY`, `FIREWORKS_BASE_URL`, and `ALLOWED_MODELS` are read from the environment at runtime — nothing is hardcoded or baked into the image, and the model list is re-parsed on every call so whatever the harness injects is what gets used. Set `ROUTER_CONCURRENCY=N` to parallelise (default 1; each worker is one in-flight call, so it's also the rate-limit blast radius).
 
 ## Status
 
