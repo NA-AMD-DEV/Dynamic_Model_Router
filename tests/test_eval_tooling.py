@@ -11,10 +11,14 @@ import agent.fireworks_client as fc
 from agent.core import answer_task, answer_task_detailed
 
 
-def _mock_completion(content: str, tokens: int):
+def _mock_completion(content: str, tokens: int, prompt_tokens: int = 0,
+                     completion_tokens: int = 0, finish_reason: str = "stop"):
     resp = MagicMock()
     resp.choices[0].message.content = content
+    resp.choices[0].finish_reason = finish_reason
     resp.usage.total_tokens = tokens
+    resp.usage.prompt_tokens = prompt_tokens
+    resp.usage.completion_tokens = completion_tokens
     return resp
 
 
@@ -33,6 +37,16 @@ def test_detailed_seam_exposes_tokens_and_category(mock_client):
     assert detail["tokens"] == 37            # the ranking metric, not dropped
     assert detail["category"] == "math_reasoning"
     assert detail["error"] is None
+
+
+def test_detailed_seam_exposes_token_split_and_truncation(mock_client):
+    mock_client.chat.completions.create.return_value = _mock_completion(
+        "partial", 50, prompt_tokens=30, completion_tokens=20, finish_reason="length"
+    )
+    detail = answer_task_detailed({"task_id": "t1", "prompt": "hello"})
+    assert detail["prompt_tokens"] == 30
+    assert detail["completion_tokens"] == 20
+    assert detail["truncated"] is True   # hit max_tokens: cap-tuning signal
 
 
 def test_frozen_seam_still_returns_bare_str(mock_client):

@@ -35,6 +35,9 @@ def run(tasks: list[dict], gate: float) -> int:
     per_cat_correct: dict[str, int] = defaultdict(int)
     per_cat_total: dict[str, int] = defaultdict(int)
     per_cat_tokens: dict[str, int] = defaultdict(int)
+    per_cat_prompt: dict[str, int] = defaultdict(int)
+    per_cat_compl: dict[str, int] = defaultdict(int)
+    per_cat_trunc: dict[str, int] = defaultdict(int)
     routing_misses: list[tuple[str, str, str]] = []
     total_tokens = 0
     total_correct = 0
@@ -53,9 +56,14 @@ def run(tasks: list[dict], gate: float) -> int:
         per_cat_total[expected_cat] += 1
         per_cat_correct[expected_cat] += int(correct)
         per_cat_tokens[expected_cat] += detail["tokens"]
+        per_cat_prompt[expected_cat] += detail["prompt_tokens"]
+        per_cat_compl[expected_cat] += detail["completion_tokens"]
+        per_cat_trunc[expected_cat] += int(detail["truncated"])
         total_tokens += detail["tokens"]
         total_correct += int(correct)
 
+        if detail["truncated"]:
+            errors.append((t["task_id"], f"truncated at max_tokens ({expected_cat})"))
         if detail["error"]:
             errors.append((t["task_id"], f"agent: {detail['error']}"))
         if verdict["error"]:
@@ -63,6 +71,7 @@ def run(tasks: list[dict], gate: float) -> int:
 
     _print_report(
         per_cat_correct, per_cat_total, per_cat_tokens,
+        per_cat_prompt, per_cat_compl, per_cat_trunc,
         routing_misses, errors, total_correct, len(tasks), total_tokens, gate,
     )
 
@@ -71,14 +80,15 @@ def run(tasks: list[dict], gate: float) -> int:
     return 0 if overall_acc >= gate else 1
 
 
-def _print_report(correct, total, tokens, routing_misses, errors,
-                  total_correct, n, total_tokens, gate) -> None:
+def _print_report(correct, total, tokens, prompt_toks, compl_toks, trunc,
+                  routing_misses, errors, total_correct, n, total_tokens, gate) -> None:
     print("\n=== per-category ===")
-    print(f"{'category':<28} {'acc':>8} {'n':>4} {'tokens':>9}")
-    print("-" * 52)
+    print(f"{'category':<28} {'acc':>8} {'n':>4} {'tokens':>9} {'prompt':>8} {'compl':>8} {'trunc':>6}")
+    print("-" * 78)
     for cat in sorted(total):
         acc = correct[cat] / total[cat] if total[cat] else 0.0
-        print(f"{cat:<28} {acc:>7.0%} {total[cat]:>4} {tokens[cat]:>9,}")
+        print(f"{cat:<28} {acc:>7.0%} {total[cat]:>4} {tokens[cat]:>9,}"
+              f" {prompt_toks[cat]:>8,} {compl_toks[cat]:>8,} {trunc[cat]:>6}")
 
     print("\n=== routing ===")
     if routing_misses:
@@ -94,9 +104,18 @@ def _print_report(correct, total, tokens, routing_misses, errors,
             print(f"  {tid}: {msg}")
 
     overall_acc = total_correct / n if n else 0.0
+    total_prompt = sum(prompt_toks.values())
+    total_compl = sum(compl_toks.values())
+    total_trunc = sum(trunc.values())
     print("\n=== summary ===")
     print(f"overall accuracy : {overall_acc:.0%}  ({total_correct}/{n})   gate proxy >= {gate:.0%}")
     print(f"TOTAL tokens     : {total_tokens:,}   (ranking metric -- drive this down)")
+    print(f"  prompt         : {total_prompt:,}")
+    print(f"  completion     : {total_compl:,}   (possibly the real ranking metric -- "
+          "compare against the leaderboard after submitting)")
+    if total_trunc:
+        print(f"truncated        : {total_trunc} answer(s) hit max_tokens -- billed tokens "
+              "buying likely-wrong answers; raise those caps")
     verdict = "PASS (proxy)" if overall_acc >= gate else "BELOW GATE"
     print(f"verdict          : {verdict}")
     if errors:
@@ -107,8 +126,9 @@ def _print_report(correct, total, tokens, routing_misses, errors,
 def main() -> int:
     ap = argparse.ArgumentParser(description="Score the agent over the eval set.")
     ap.add_argument("--eval-set", type=Path, default=EVAL_SET)
-    ap.add_argument("--gate", type=float, default=0.8,
-                    help="proxy accuracy threshold for a non-zero exit (default 0.8)")
+    ap.add_argument("--gate", type=float, default=0.9,
+                    help="proxy accuracy threshold for a non-zero exit (default 0.9: "
+                         "the target gate is 85%% and this proxy needs margin)")
     args = ap.parse_args()
 
     tasks = load_eval_set(args.eval_set)

@@ -64,7 +64,14 @@ def call_model(prompt: str, system_prompt: str, model: str, max_tokens: int) -> 
     """Single call to Fireworks. Retries once on transient failure, then
     degrades to a best-effort empty answer so the task still returns.
 
-    Returns {"answer": str, "tokens": int, "error": str | None}.
+    Returns {"answer": str, "tokens": int, "prompt_tokens": int,
+             "completion_tokens": int, "truncated": bool, "error": str | None}.
+
+    `tokens` is the total; the prompt/completion split exists because the
+    official ranking may count only completion tokens (the leaderboard numbers
+    are too small to include prompts), and tuning the wrong lever wastes work.
+    `truncated` means the answer hit max_tokens (finish_reason == "length"):
+    those tokens were billed for an answer that will likely be judged wrong.
     """
     models = allowed_models()
     if models and model not in models:
@@ -76,7 +83,7 @@ def call_model(prompt: str, system_prompt: str, model: str, max_tokens: int) -> 
     try:
         client = _get_client()
     except RuntimeError as exc:
-        return {"answer": "", "tokens": 0, "error": str(exc)}
+        return _failure(str(exc))
 
     messages = [
         {"role": "system", "content": system_prompt},
@@ -100,9 +107,17 @@ def call_model(prompt: str, system_prompt: str, model: str, max_tokens: int) -> 
                 temperature=0.2,  # low temp = more consistent, deterministic-ish answers
                 extra_body=extra_body,
             )
-            answer = (response.choices[0].message.content or "").strip()
-            tokens_used = response.usage.total_tokens if response.usage else 0
-            return {"answer": answer, "tokens": tokens_used, "error": None}
+            choice = response.choices[0]
+            answer = (choice.message.content or "").strip()
+            usage = response.usage
+            return {
+                "answer": answer,
+                "tokens": usage.total_tokens if usage else 0,
+                "prompt_tokens": (usage.prompt_tokens if usage else 0) or 0,
+                "completion_tokens": (usage.completion_tokens if usage else 0) or 0,
+                "truncated": choice.finish_reason == "length",
+                "error": None,
+            }
         except Exception as exc:
             # If the model rejected reasoning_effort, drop it and retry once
             # without it -- the param is an optimisation, never a requirement.
@@ -113,4 +128,16 @@ def call_model(prompt: str, system_prompt: str, model: str, max_tokens: int) -> 
                 transient_left -= 1
                 time.sleep(1)  # brief pause before retry
                 continue
-            return {"answer": "", "tokens": 0, "error": str(exc)}
+            return _failure(str(exc))
+
+
+def _failure(error: str) -> dict:
+    """The degraded shape: same keys as a success, so no caller branches."""
+    return {
+        "answer": "",
+        "tokens": 0,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "truncated": False,
+        "error": error,
+    }

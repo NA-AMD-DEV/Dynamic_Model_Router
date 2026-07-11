@@ -28,7 +28,8 @@ def answer_task_detailed(task: dict) -> dict:
     """Same work as `answer_task`, but returns the full record R3 needs to
     total the ranking metric:
 
-        {"answer": str, "category": str, "tokens": int, "error": str | None}
+        {"answer": str, "category": str, "tokens": int, "prompt_tokens": int,
+         "completion_tokens": int, "truncated": bool, "error": str | None}
 
     `answer_task` is the frozen container-facing seam (str only); this is the
     eval-facing one. Both go through the exact same code path so the tokens
@@ -48,5 +49,8 @@ def answer_task_detailed(task: dict) -> dict:
         "answer": result["answer"],
         "category": category,
         "tokens": result["tokens"],
+        "prompt_tokens": result["prompt_tokens"],
+        "completion_tokens": result["completion_tokens"],
+        "truncated": result["truncated"],
         "error": result["error"],
     }
