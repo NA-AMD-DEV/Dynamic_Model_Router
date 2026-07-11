@@ -19,6 +19,7 @@ score is necessary, not sufficient.
 
 import os
 import re
+import sys
 
 from agent.config import allowed_models
 from agent.fireworks_client import call_model
@@ -26,9 +27,23 @@ from agent.fireworks_client import call_model
 # Judge with a cheap model by default; override if R3 wants a stronger judge.
 JUDGE_MODEL_ENV = "JUDGE_MODEL"
 
+
+def _int_env(name: str, fallback: int) -> int:
+    """A typo'd override degrades to the default, loudly -- same policy as
+    agent/config.py: never let a bad env var crash a run."""
+    raw = os.environ.get(name)
+    if raw is None:
+        return fallback
+    try:
+        return int(raw)
+    except ValueError:
+        print(f"ignoring {name}={raw!r}: not an integer", file=sys.stderr)
+        return fallback
+
+
 # Enough room for a reasoning model to think and then emit its verdict. Override
 # via JUDGE_MAX_TOKENS. Judge cost is local-only, so err generous, not stingy.
-JUDGE_MAX_TOKENS = int(os.environ.get("JUDGE_MAX_TOKENS", "2000"))
+JUDGE_MAX_TOKENS = _int_env("JUDGE_MAX_TOKENS", 2000)
 
 _JUDGE_SYSTEM = (
     "You are a strict grader. You are given a QUESTION, the EXPECTED INTENT of a "

@@ -124,7 +124,9 @@ python -m pytest tests/ -q
 
 Every category defaults to `ALLOWED_MODELS[0]` — the agent makes **no assumption** about the injected list's order or which model is "stronger", since the harness doesn't promise one. R2 points a category at a specific model only after measuring, via `ROUTER_<CATEGORY>_MODEL=<exact id>` (or `ROUTER_<CATEGORY>_MODEL_INDEX=n`). Other per-category knobs: `ROUTER_<CATEGORY>_MAX_TOKENS`, `ROUTER_<CATEGORY>_SYSTEM`. Example: `ROUTER_CODE_GENERATION_MAX_TOKENS=256`.
 
-All three of `FIREWORKS_API_KEY`, `FIREWORKS_BASE_URL`, and `ALLOWED_MODELS` are read from the environment at runtime — nothing is hardcoded or baked into the image, and the model list is re-parsed on every call so whatever the harness injects is what gets used. Set `ROUTER_CONCURRENCY=N` to parallelise (default 1; each worker is one in-flight call, so it's also the rate-limit blast radius).
+All three of `FIREWORKS_API_KEY`, `FIREWORKS_BASE_URL`, and `ALLOWED_MODELS` are read from the environment at runtime — nothing is hardcoded or baked into the image, and the model list is re-parsed on every call so whatever the harness injects is what gets used. Set `ROUTER_CONCURRENCY=N` to parallelise (the Dockerfile bakes 3; each worker is one in-flight call, so it's also the rate-limit blast radius).
+
+> **Before submitting:** the judging harness injects **only** `FIREWORKS_API_KEY`, `FIREWORKS_BASE_URL`, and `ALLOWED_MODELS` — no `ROUTER_*` variables exist on judging day. Any tuning proven out via env vars must be baked into `_DEFAULTS` in `agent/config.py` (or an `ENV` line in the Dockerfile) before the image is built, or it silently won't apply.
 
 ## Status
 

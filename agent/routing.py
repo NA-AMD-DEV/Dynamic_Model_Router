@@ -15,7 +15,7 @@ before summarisation. Put the more specific / higher-signal category first.
 
 import re
 
-DEFAULT_CATEGORY = "factual_knowledge"
+from agent.config import DEFAULT_CATEGORY
 
 # First match wins. Ordered most-specific to least.
 PRIORITY: list[tuple[str, list[str]]] = [

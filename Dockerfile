@@ -21,6 +21,11 @@ COPY agent/ ./agent/
 # user risks EACCES on results.json — a missing output file scores zero, which
 # is a far worse outcome than running privileged in a throwaway judging VM.
 
+# 3 in-flight calls: sequential worst case (48 tasks × up to ~51s with a retry)
+# can blow the 10-minute wall, and every task left behind keeps the "" fallback
+# — guaranteed accuracy damage. 3 keeps the rate-limit blast radius small.
+ENV ROUTER_CONCURRENCY=3
+
 # No .env, no API key. FIREWORKS_BASE_URL, FIREWORKS_API_KEY, and ALLOWED_MODELS
 # are injected by the harness at run time and read via os.environ.
 ENTRYPOINT ["python", "-m", "agent.main"]
