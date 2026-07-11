@@ -93,54 +93,51 @@ def _override_int(category: str, field: str, fallback: int) -> int:
 #
 # Token budgets DO differ by category (cheap asks get tiny caps; code and
 # multi-step reasoning need headroom) — that's a safe, model-independent lever.
+# System prompts are billed as prompt tokens on EVERY call: every word here
+# must either raise accuracy or shorten the output. Constraint kept, filler cut.
 _DEFAULTS: dict[str, _Default] = {
     "factual_knowledge": _Default(
         0,
-        "Answer the question directly and concisely. "
-        "No preamble, no restating the question. Answer only.",
+        "Reply with only the answer, concisely. No preamble.",
         150,
     ),
     "math_reasoning": _Default(
         0,
-        "Solve the problem step by step internally, but output ONLY the final "
-        "numeric or short answer. Do not show your work. Answer only.",
+        "Solve internally; output ONLY the final answer. No working shown.",
         200,
     ),
     "sentiment_classification": _Default(
         0,
-        "Classify the sentiment as positive, negative, or neutral. "
-        "Reply in the format: label: <sentiment> | reason: <one short sentence>. "
-        "Nothing else.",
-        60,
+        # Label only: the grader scores the label; a 'reason' sentence is
+        # ~10-15 billed tokens buying nothing.
+        "Reply with one word: positive, negative, or neutral. Nothing else.",
+        10,
     ),
     "summarisation": _Default(
         0,
-        "Summarise the given text to exactly match the requested length/format "
-        "constraint in the prompt. Output ONLY the summary, nothing else.",
+        "Match the prompt's length/format constraint exactly. "
+        "Output ONLY the summary.",
         150,
     ),
     "named_entity_recognition": _Default(
         0,
-        "Extract named entities. Reply ONLY as label:value pairs, one per line "
-        "(e.g. PERSON: John Smith). No prose, no explanation.",
+        "Reply ONLY with label: value pairs, one entity per line "
+        "(e.g. PERSON: John Smith).",
         120,
     ),
     "code_debugging": _Default(
         0,
-        "Find the bug and return ONLY the corrected, complete function in a single "
-        "code block. No explanation, no prose before or after.",
+        "Return ONLY the corrected, complete function in one code block. No prose.",
         400,
     ),
     "logical_reasoning": _Default(
         0,
-        "Solve the constraint puzzle. Verify all conditions are satisfied internally, "
-        "but output ONLY the final answer. No reasoning shown.",
+        "Reason internally; output ONLY the final answer. No reasoning shown.",
         200,
     ),
     "code_generation": _Default(
         0,
-        "Write the function exactly as specified. Return ONLY a single code block "
-        "with the complete, correct implementation. No explanation.",
+        "Return ONLY one code block with the complete implementation. No explanation.",
         400,
     ),
 }

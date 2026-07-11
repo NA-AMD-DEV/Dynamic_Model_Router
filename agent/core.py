@@ -4,7 +4,7 @@ Frozen signature and both invariants below; the container and the eval
 harness depend on them.
 """
 
-from agent.config import config_for
+from agent.config import DEFAULT_CATEGORY, config_for
 from agent.fireworks_client import call_model
 from agent.routing import classify
 
@@ -36,6 +36,14 @@ def answer_task_detailed(task: dict) -> dict:
     R3 measures are the tokens the container actually spends.
     """
     prompt = task.get("prompt", "")
+    if not isinstance(prompt, str) or not prompt.strip():
+        # A blank prompt has no answer; don't pay a model call to learn that.
+        # (The isinstance guard also keeps classify() from raising on junk.)
+        return {
+            "answer": "", "category": DEFAULT_CATEGORY, "tokens": 0,
+            "prompt_tokens": 0, "completion_tokens": 0, "truncated": False,
+            "error": None,
+        }
     category = classify(prompt)
     cfg = config_for(category)
 

@@ -49,6 +49,29 @@ def test_detailed_seam_exposes_token_split_and_truncation(mock_client):
     assert detail["truncated"] is True   # hit max_tokens: cap-tuning signal
 
 
+def test_empty_prompt_short_circuits_without_a_call(mock_client):
+    for prompt in ("", "   ", None):
+        detail = answer_task_detailed({"task_id": "t9", "prompt": prompt})
+        assert detail["answer"] == "" and detail["tokens"] == 0
+        assert detail["error"] is None
+    mock_client.chat.completions.create.assert_not_called()
+
+
+def test_inline_think_blocks_are_stripped(mock_client):
+    mock_client.chat.completions.create.return_value = _mock_completion(
+        "<think>6 times 7... classic</think>42", 20
+    )
+    assert answer_task({"task_id": "t1", "prompt": "What is 6*7?"}) == "42"
+
+
+def test_unclosed_think_block_yields_empty_answer(mock_client):
+    # Truncated mid-reasoning: everything after <think> is thinking, not answer.
+    mock_client.chat.completions.create.return_value = _mock_completion(
+        "<think>let me consider the", 20, finish_reason="length"
+    )
+    assert answer_task({"task_id": "t1", "prompt": "hard question"}) == ""
+
+
 def test_frozen_seam_still_returns_bare_str(mock_client):
     mock_client.chat.completions.create.return_value = _mock_completion("answer", 5)
     out = answer_task({"task_id": "t1", "prompt": "hello"})

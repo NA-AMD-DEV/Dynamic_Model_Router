@@ -4,6 +4,7 @@ agent/core.py calls `call_model` once per task with that category's config.
 """
 
 import os
+import re
 import time
 
 from openai import OpenAI
@@ -60,6 +61,22 @@ def _looks_like_param_rejection(exc: Exception) -> bool:
     return "invalid_request" in msg or "extra inputs" in msg
 
 
+# Some reasoning models inline their thinking as <think>...</think> in content
+# even at low effort. Those tokens are already billed, but shipping them in the
+# answer breaks the answer-only invariant and fails intent judging.
+_THINK_RE = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)
+
+
+def _strip_think(text: str) -> str:
+    text = _THINK_RE.sub("", text)
+    # An unclosed <think> means the output is reasoning that never finished --
+    # everything from the tag on is thinking, not answer.
+    idx = text.lower().find("<think>")
+    if idx != -1:
+        text = text[:idx]
+    return text.strip()
+
+
 def call_model(prompt: str, system_prompt: str, model: str, max_tokens: int) -> dict:
     """Single call to Fireworks. Retries once on transient failure, then
     degrades to a best-effort empty answer so the task still returns.
@@ -108,7 +125,7 @@ def call_model(prompt: str, system_prompt: str, model: str, max_tokens: int) -> 
                 extra_body=extra_body,
             )
             choice = response.choices[0]
-            answer = (choice.message.content or "").strip()
+            answer = _strip_think(choice.message.content or "")
             usage = response.usage
             return {
                 "answer": answer,
