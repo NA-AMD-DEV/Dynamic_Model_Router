@@ -189,6 +189,44 @@ def test_model_index_env_beats_tier(monkeypatch):
     assert config_for("code_generation").model == "model-a"
 
 
+def test_code_categories_claim_a_code_specialist(monkeypatch):
+    import agent.config as cfg
+    monkeypatch.setattr(cfg, "_UNAVAILABLE", set())
+    monkeypatch.setenv("ALLOWED_MODELS", "minimax-m3, kimi-k2p7-code")
+    # Code categories route to the code-tuned model...
+    assert config_for("code_generation").model == "kimi-k2p7-code"
+    assert config_for("code_debugging").model == "kimi-k2p7-code"
+    # ...and general categories never land on it, even though it's index 1.
+    assert config_for("summarisation").model == "minimax-m3"
+    assert config_for("sentiment_classification").model == "minimax-m3"
+    assert config_for("factual_knowledge").model == "minimax-m3"
+
+
+def test_real_allowed_list_self_heals_past_undeployed_gemmas(monkeypatch):
+    # The real judging list: gemmas are present but not serverless-deployed.
+    # After they 404 (simulated by marking them), routing settles cleanly on
+    # the two live models, code -> the code specialist.
+    import agent.config as cfg
+    monkeypatch.setattr(cfg, "_UNAVAILABLE", set())
+    monkeypatch.setenv(
+        "ALLOWED_MODELS",
+        "minimax-m3, kimi-k2p7-code, gemma-4-31b-it, gemma-4-26b-a4b-it, gemma-4-31b-it-nvfp4",
+    )
+    for dead in ("gemma-4-31b-it", "gemma-4-26b-a4b-it", "gemma-4-31b-it-nvfp4"):
+        cfg.mark_unavailable(dead)
+    picks = {c: config_for(c).model for c in cfg.CATEGORIES}
+    assert set(picks.values()) <= {"minimax-m3", "kimi-k2p7-code"}   # no dead model survives
+    assert picks["code_generation"] == "kimi-k2p7-code"
+    assert picks["sentiment_classification"] == "minimax-m3"
+
+
+def test_model_index_env_beats_tier2(monkeypatch):
+    monkeypatch.setenv("ALLOWED_MODELS", "model-a, model-b")
+    monkeypatch.setenv("ROUTER_CODE_GENERATION_MODEL_INDEX", "0")
+    # Explicit index still wins even over the specialist rule.
+    assert config_for("code_generation").model == "model-a"
+
+
 def test_model_index_clamps_rather_than_crashing(monkeypatch):
     monkeypatch.setenv("ALLOWED_MODELS", "tiny, mid")
     monkeypatch.setenv("ROUTER_CODE_GENERATION_MODEL_INDEX", "99")

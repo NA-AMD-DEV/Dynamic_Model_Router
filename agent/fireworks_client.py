@@ -9,7 +9,7 @@ import time
 
 from openai import OpenAI
 
-from agent.config import allowed_models
+from agent.config import available_models, mark_unavailable
 
 _client: OpenAI | None = None
 
@@ -45,6 +45,17 @@ def _get_client() -> OpenAI:
 # call is rejected for it, transparently retry WITHOUT it -- never let this
 # optimisation cost a submission. Set REASONING_EFFORT="" to disable entirely.
 REASONING_EFFORT = os.environ.get("REASONING_EFFORT", "none")
+
+
+def _looks_like_model_unavailable(exc: Exception) -> bool:
+    """True if the proxy reports the model isn't deployed / doesn't exist (404
+    NOT_FOUND). ALLOWED_MODELS can list ids that aren't actually served on the
+    serverless instance; routing to one must fail over to a live model, not
+    fail the task."""
+    if getattr(exc, "status_code", None) == 404:
+        return True
+    msg = str(exc).lower()
+    return "not_found" in msg or "not deployed" in msg or "inaccessible" in msg
 
 
 def _looks_like_param_rejection(exc: Exception) -> bool:
@@ -95,9 +106,9 @@ def call_model(prompt: str, system_prompt: str, model: str, max_tokens: int,
     agent path passes a per-category value; the judge (eval/judge.py) passes
     nothing, so it keeps the generous global default it needs to emit a verdict.
     """
-    models = allowed_models()
+    models = available_models()
     if models and model not in models:
-        model = models[0]  # safety net: never call a disallowed model
+        model = models[0]  # safety net: never call a disallowed/dead model
 
     # Missing credentials is a config error, not a transient one: fail fast
     # rather than sleeping through a pointless retry. Still returns a dict --
@@ -116,11 +127,11 @@ def call_model(prompt: str, system_prompt: str, model: str, max_tokens: int,
     effort = reasoning_effort if reasoning_effort is not None else REASONING_EFFORT
     extra_body = {"reasoning_effort": effort} if effort else None
 
-    # Two independent retry budgets, so a param-drop retry never consumes the
-    # transient one (a range(2) loop here once fell off the end and returned
-    # None when a transient error preceded a 400). Each branch is bounded --
-    # extra_body can only be dropped once, transient_left only decrements --
-    # so the loop makes at most 3 requests and always returns a dict.
+    # Independent retry budgets, so one kind of retry never consumes another's
+    # (a range(2) loop here once fell off the end and returned None). Each is
+    # bounded -- extra_body drops at most once, transient_left decrements once,
+    # model fallback walks a finite list -- so the loop always returns a dict.
+    tried_models: set[str] = set()
     transient_left = 1
     while True:
         try:
@@ -143,6 +154,16 @@ def call_model(prompt: str, system_prompt: str, model: str, max_tokens: int,
                 "error": None,
             }
         except Exception as exc:
+            # Model not deployed: blocklist it so routing stops picking it, and
+            # fail this task over to another live model rather than losing it.
+            if _looks_like_model_unavailable(exc):
+                mark_unavailable(model)
+                tried_models.add(model)
+                nxt = next((m for m in available_models() if m not in tried_models), None)
+                if nxt:
+                    model = nxt
+                    continue
+                return _failure(str(exc))
             # If the model rejected reasoning_effort, drop it and retry once
             # without it -- the param is an optimisation, never a requirement.
             if extra_body is not None and _looks_like_param_rejection(exc):

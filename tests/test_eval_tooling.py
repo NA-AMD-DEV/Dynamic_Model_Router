@@ -51,6 +51,40 @@ def test_detailed_seam_exposes_token_split_and_truncation(mock_client):
     assert detail["truncated"] is True   # hit max_tokens: cap-tuning signal
 
 
+def test_local_backend_is_used_when_LOCAL_MODEL_PATH_set(monkeypatch):
+    # With LOCAL_MODEL_PATH set, agent inference routes to the local backend
+    # and never touches Fireworks (0 counted tokens).
+    import agent.core as core
+    monkeypatch.setenv("LOCAL_MODEL_PATH", "/models/whatever.gguf")
+
+    captured = {}
+
+    def fake_local(prompt, system, max_tokens):
+        captured["called"] = True
+        return {"answer": "iron", "tokens": 12, "prompt_tokens": 9,
+                "completion_tokens": 3, "truncated": False, "error": None}
+
+    def boom(*a, **k):
+        raise AssertionError("Fireworks must not be called in local mode")
+
+    monkeypatch.setattr(core, "local_generate", fake_local)
+    monkeypatch.setattr(core, "call_model", boom)
+
+    detail = core.answer_task_detailed({"task_id": "f", "prompt": "Which element has symbol Fe?"})
+    assert captured.get("called") and detail["answer"] == "iron"
+
+
+def test_local_generate_returns_error_dict_when_dep_missing(monkeypatch):
+    # llama-cpp-python is a probe-only dependency and isn't installed for the
+    # test suite; local_generate must degrade to an error dict, never raise.
+    import agent.local_client as lc
+    monkeypatch.setenv("LOCAL_MODEL_PATH", "/models/none.gguf")
+    monkeypatch.setattr(lc, "_llm", None)
+    result = lc.local_generate("p", "s", 50)
+    assert result["answer"] == "" and result["tokens"] == 0
+    assert result["error"] is not None  # surfaced, not swallowed
+
+
 def test_empty_prompt_short_circuits_without_a_call(mock_client):
     for prompt in ("", "   ", None):
         detail = answer_task_detailed({"task_id": "t9", "prompt": prompt})
@@ -153,6 +187,46 @@ def test_reasoning_param_sent_when_enabled(monkeypatch):
 
     fc.call_model("p", "s", "test-model", 100)
     assert seen == [{"reasoning_effort": "none"}]  # sent on the first try
+
+
+def test_undeployed_model_fails_over_to_a_live_one(monkeypatch):
+    # ALLOWED_MODELS lists a model that isn't served (404). The task must not
+    # fail: blocklist the dead model and retry on the next live one.
+    import agent.config as cfg
+    monkeypatch.setattr(cfg, "_UNAVAILABLE", set())
+    monkeypatch.setenv("ALLOWED_MODELS", "dead-model, live-model")
+    monkeypatch.setattr(fc, "REASONING_EFFORT", "")
+    monkeypatch.setattr(fc.time, "sleep", lambda s: None)
+    seen = []
+
+    def create(**kw):
+        seen.append(kw["model"])
+        if kw["model"] == "dead-model":
+            exc = Exception("Error code: 404 - Model not found, inaccessible, and/or not deployed")
+            exc.status_code = 404
+            raise exc
+        return _mock_completion("ok", 8)
+
+    fake = MagicMock()
+    fake.chat.completions.create = create
+    monkeypatch.setattr(fc, "_get_client", lambda: fake)
+
+    result = fc.call_model("p", "s", "dead-model", 50)
+    assert result["answer"] == "ok" and result["error"] is None
+    assert seen == ["dead-model", "live-model"]
+    assert "dead-model" in cfg._UNAVAILABLE  # remembered, so routing skips it next time
+
+
+def test_marked_unavailable_model_is_dropped_from_routing(monkeypatch):
+    import agent.config as cfg
+    from agent.config import available_models, config_for
+    monkeypatch.setattr(cfg, "_UNAVAILABLE", set())
+    monkeypatch.setenv("ALLOWED_MODELS", "gemma-4-31b-it, minimax-m3, kimi-k2p7-code")
+    # gemma ranks 'largest' by parsed size, but once it 404s it's out.
+    cfg.mark_unavailable("gemma-4-31b-it")
+    assert "gemma-4-31b-it" not in available_models()
+    # No category should resolve to the dead model any more.
+    assert all(config_for(c).model != "gemma-4-31b-it" for c in cfg.CATEGORIES)
 
 
 def test_transient_then_param_rejection_still_returns_dict(monkeypatch):

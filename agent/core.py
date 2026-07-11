@@ -6,6 +6,7 @@ harness depend on them.
 
 from agent.config import DEFAULT_CATEGORY, config_for
 from agent.fireworks_client import call_model
+from agent.local_client import local_enabled, local_generate
 from agent.routing import classify
 from agent.solvers import solve_logic, solve_math
 
@@ -72,13 +73,19 @@ def answer_task_detailed(task: dict) -> dict:
 
     cfg = config_for(category)
 
-    result = call_model(
-        prompt=prompt,
-        system_prompt=cfg.system,
-        model=cfg.model,
-        max_tokens=cfg.max_tokens,
-        reasoning_effort=cfg.reasoning,
-    )
+    # LOCAL_MODEL_PATH set -> run the feasibility probe's bundled model (0
+    # Fireworks tokens). Unset -> the normal Fireworks path. The judge stays on
+    # Fireworks regardless: it calls call_model directly, not through here.
+    if local_enabled():
+        result = local_generate(prompt, cfg.system, cfg.max_tokens)
+    else:
+        result = call_model(
+            prompt=prompt,
+            system_prompt=cfg.system,
+            model=cfg.model,
+            max_tokens=cfg.max_tokens,
+            reasoning_effort=cfg.reasoning,
+        )
     return {
         "answer": result["answer"],
         "category": category,

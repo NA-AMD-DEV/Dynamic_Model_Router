@@ -17,6 +17,7 @@ R3 owns the pass/fail call. This tool reports; it does not decide.
 import argparse
 import json
 import sys
+import time
 from collections import defaultdict
 from pathlib import Path
 
@@ -24,6 +25,11 @@ from agent.core import answer_task_detailed
 from eval.judge import score_one
 
 EVAL_SET = Path(__file__).parent / "eval_set.json"
+
+# The judging VM's hard limits. Reported so the local-inference probe can see
+# at a glance whether a candidate model fits the time budget on this box.
+PER_REQUEST_LIMIT_S = 30.0
+TOTAL_RUN_LIMIT_S = 10 * 60.0
 
 
 def load_eval_set(path: Path) -> list[dict]:
@@ -38,14 +44,23 @@ def run(tasks: list[dict], gate: float) -> int:
     per_cat_prompt: dict[str, int] = defaultdict(int)
     per_cat_compl: dict[str, int] = defaultdict(int)
     per_cat_trunc: dict[str, int] = defaultdict(int)
+    per_cat_latency: dict[str, float] = defaultdict(float)
     routing_misses: list[tuple[str, str, str]] = []
     total_tokens = 0
     total_correct = 0
+    total_latency = 0.0
+    slowest = (0.0, "")  # (seconds, task_id) -- the per-request budget check
     errors: list[tuple[str, str]] = []
 
     for t in tasks:
         expected_cat = t["category"]
+        t0 = time.monotonic()
         detail = answer_task_detailed(t)
+        dt = time.monotonic() - t0
+        per_cat_latency[expected_cat] += dt
+        total_latency += dt
+        if dt > slowest[0]:
+            slowest = (dt, t["task_id"])
         got_cat = detail["category"]
         if got_cat != expected_cat:
             routing_misses.append((t["task_id"], expected_cat, got_cat))
@@ -71,8 +86,9 @@ def run(tasks: list[dict], gate: float) -> int:
 
     _print_report(
         per_cat_correct, per_cat_total, per_cat_tokens,
-        per_cat_prompt, per_cat_compl, per_cat_trunc,
+        per_cat_prompt, per_cat_compl, per_cat_trunc, per_cat_latency,
         routing_misses, errors, total_correct, len(tasks), total_tokens, gate,
+        total_latency, slowest,
     )
 
     overall_acc = total_correct / len(tasks) if tasks else 0.0
@@ -80,15 +96,18 @@ def run(tasks: list[dict], gate: float) -> int:
     return 0 if overall_acc >= gate else 1
 
 
-def _print_report(correct, total, tokens, prompt_toks, compl_toks, trunc,
-                  routing_misses, errors, total_correct, n, total_tokens, gate) -> None:
+def _print_report(correct, total, tokens, prompt_toks, compl_toks, trunc, latency,
+                  routing_misses, errors, total_correct, n, total_tokens, gate,
+                  total_latency, slowest) -> None:
     print("\n=== per-category ===")
-    print(f"{'category':<28} {'acc':>8} {'n':>4} {'tokens':>9} {'prompt':>8} {'compl':>8} {'trunc':>6}")
-    print("-" * 78)
+    print(f"{'category':<28} {'acc':>8} {'n':>4} {'tokens':>9} {'prompt':>8} "
+          f"{'compl':>8} {'trunc':>6} {'s/task':>7}")
+    print("-" * 86)
     for cat in sorted(total):
         acc = correct[cat] / total[cat] if total[cat] else 0.0
+        avg_s = latency[cat] / total[cat] if total[cat] else 0.0
         print(f"{cat:<28} {acc:>7.0%} {total[cat]:>4} {tokens[cat]:>9,}"
-              f" {prompt_toks[cat]:>8,} {compl_toks[cat]:>8,} {trunc[cat]:>6}")
+              f" {prompt_toks[cat]:>8,} {compl_toks[cat]:>8,} {trunc[cat]:>6} {avg_s:>7.1f}")
 
     print("\n=== routing ===")
     if routing_misses:
@@ -116,6 +135,20 @@ def _print_report(correct, total, tokens, prompt_toks, compl_toks, trunc,
     if total_trunc:
         print(f"truncated        : {total_trunc} answer(s) hit max_tokens -- billed tokens "
               "buying likely-wrong answers; raise those caps")
+
+    # Timing -- the binding constraint for the local-inference probe. Harmless
+    # on the Fireworks path (calls are fast); decisive on CPU-only local models.
+    print(f"\nwall time        : {total_latency:.1f}s total   (limit {TOTAL_RUN_LIMIT_S:.0f}s"
+          f" for the whole run -- concurrency can parallelise this)")
+    print(f"slowest task     : {slowest[0]:.1f}s ({slowest[1]})   "
+          f"(limit {PER_REQUEST_LIMIT_S:.0f}s PER request -- a hard per-call ceiling)")
+    if slowest[0] > PER_REQUEST_LIMIT_S:
+        print("  !! a task exceeded the 30s per-request limit -- this model is too slow "
+              "for that category as configured")
+    if total_latency > TOTAL_RUN_LIMIT_S:
+        print("  !! total exceeds the 10-min run budget at concurrency=1 -- needs "
+              "parallelism or a faster/smaller model")
+
     verdict = "PASS (proxy)" if overall_acc >= gate else "BELOW GATE"
     print(f"verdict          : {verdict}")
     if errors:

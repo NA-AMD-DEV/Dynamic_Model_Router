@@ -45,6 +45,7 @@ class _Default:
     max_tokens: int
     tier: str = ""
     reasoning: str | None = None  # None -> global REASONING_EFFORT (usually "none")
+    specialist: str = ""          # e.g. "code": prefer a code-tuned model if one exists
 
 
 def allowed_models() -> list[str]:
@@ -54,13 +55,34 @@ def allowed_models() -> list[str]:
     return [p for p in parts if p]
 
 
+# Models the proxy reported as not-found / not-deployed THIS RUN. ALLOWED_MODELS
+# may list ids that aren't actually served on the serverless instance (e.g. a
+# model that needs a dedicated deployment); calling one 404s and fails the task.
+# call_model records them here on a 404 so routing never picks them again --
+# a runtime-learned filter, no model name ever hardcoded.
+_UNAVAILABLE: set[str] = set()
+
+
+def mark_unavailable(model: str) -> None:
+    if model:
+        _UNAVAILABLE.add(model)
+
+
+def available_models() -> list[str]:
+    """ALLOWED_MODELS minus any learned to be undeployed this run. Falls back to
+    the full list if every model has been marked (better to retry a maybe-flaky
+    one than route to nothing)."""
+    live = [m for m in allowed_models() if m not in _UNAVAILABLE]
+    return live or allowed_models()
+
+
 def pick_model(preference: int = 0) -> str:
     """Choose from ALLOWED_MODELS by index, clamped to the last entry.
 
     Returns "" when ALLOWED_MODELS is unset (local dev with the stub). R2's
     real client must treat "" as a hard error rather than guess an ID.
     """
-    models = allowed_models()
+    models = available_models()
     if not models:
         return ""
     return models[min(max(preference, 0), len(models) - 1)]
@@ -107,11 +129,41 @@ def _rank_by_capability(models: list[str]) -> list[str]:
     return [m for m, _ in known] + unknown
 
 
+# A task-specialised model advertises its niche in its id (e.g. "...-coder...",
+# "kimi-k2p7-code"). Detected by substring only -- no specific model hardcoded.
+# Such a model is RESERVED for its category: a code model shouldn't be the
+# general pick for summarisation just because it happens to be the largest.
+_SPECIALISMS: dict[str, tuple[str, ...]] = {
+    "code": ("code", "coder"),
+}
+
+
+def _specialism_of(model_id: str) -> str | None:
+    low = model_id.lower()
+    for tag, keys in _SPECIALISMS.items():
+        if any(k in low for k in keys):
+            return tag
+    return None
+
+
+def pick_specialist(tag: str) -> str:
+    """First available model specialised for `tag` (e.g. a code model), or "" if
+    none. Lets code categories claim a code-tuned model without naming it."""
+    for model in available_models():
+        if _specialism_of(model) == tag:
+            return model
+    return ""
+
+
 def pick_capability(tier: str) -> str:
     """small | medium | large, chosen from ALLOWED_MODELS purely by relative
     capability signal in the ids themselves. Degrades gracefully as the list
     shrinks: with 2 models 'medium' collapses to the same choice as 'large';
     with 1 model every tier resolves to it. "" when ALLOWED_MODELS is unset.
+
+    Specialist models (e.g. a code model) are excluded from the GENERAL ranking
+    unless nothing else is left -- so a general category never lands on a
+    code-tuned model just because it parses as the biggest.
 
     This offline ranking is a starting point for local testing before the
     real ALLOWED_MODELS is known, not a guarantee of correctness -- pure id
@@ -119,10 +171,11 @@ def pick_capability(tier: str) -> str:
     docstring). Once the real list is revealed, MEASURE with
     `python -m eval.score` and pin the winner via ROUTER_<CATEGORY>_MODEL.
     """
-    models = allowed_models()
+    models = available_models()
     if not models:
         return ""
-    ranked = _rank_by_capability(models)
+    general = [m for m in models if _specialism_of(m) is None] or models
+    ranked = _rank_by_capability(general)
     n = len(ranked)
     if tier == "small":
         return ranked[0]
@@ -215,6 +268,7 @@ _DEFAULTS: dict[str, _Default] = {
         "Return ONLY the corrected, complete function in one code block. No prose.",
         400,
         tier="medium",
+        specialist="code",
     ),
     "logical_reasoning": _Default(
         0,
@@ -227,6 +281,7 @@ _DEFAULTS: dict[str, _Default] = {
         "Return ONLY one code block with the complete implementation. No explanation.",
         400,
         tier="medium",
+        specialist="code",
     ),
 }
 
@@ -247,12 +302,16 @@ def config_for(category: str) -> Config:
     # Model precedence, most specific first:
     #   1. ROUTER_<CAT>_MODEL       -- an explicit pinned id
     #   2. ROUTER_<CAT>_MODEL_INDEX -- an explicit index into ALLOWED_MODELS
-    #   3. the category's tier      -- capability-ranked, else model_index
-    #   4. model_index default
+    #   3. the category's specialist -- a code-tuned model for code categories,
+    #                                   if the injected list actually has one
+    #   4. the category's tier      -- capability-ranked, else model_index
+    #   5. model_index default
     model = os.environ.get(_env_key(category, "MODEL"))
     if not model:
         if os.environ.get(_env_key(category, "MODEL_INDEX")) is not None:
             model = pick_model(_override_int(category, "MODEL_INDEX", spec.model_index))
+        elif spec.specialist and pick_specialist(spec.specialist):
+            model = pick_specialist(spec.specialist)
         elif spec.tier:
             model = pick_capability(spec.tier)
         else:
