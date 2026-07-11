@@ -1,0 +1,75 @@
+[
+  {
+    "task_id": "org-T01",
+    "category": "factual_knowledge",
+    "prompt": "Name the three primary colors in the RGB color model and briefly explain why displays use RGB instead of RYB.",
+    "expected_intent": "Correctly identifies red, green, and blue as the three primary colors, and explains that RGB is used in displays because screens emit light additively (additive color mixing), whereas RYB applies to subtractive mixing of physical pigments.",
+    "expected_answer": null
+  },
+  {
+    "task_id": "org-T01b",
+    "category": "factual_knowledge",
+    "prompt": "What is the difference between machine learning and deep learning? Briefly explain how each works.",
+    "expected_intent": "Distinguishes ML as algorithms that learn patterns from data (statistical or feature-based), and deep learning as a subset of ML using multi-layer neural networks. Explains that deep learning automatically extracts features from raw data, while traditional ML often requires manual feature engineering. Must make the subset relationship clear.",
+    "expected_answer": null
+  },
+  {
+    "task_id": "org-T01c",
+    "category": "factual_knowledge",
+    "prompt": "Explain the difference between RAM and ROM in a computer. What is each type used for?",
+    "expected_intent": "RAM (Random Access Memory) is volatile and fast, used for temporary storage of active programs and data. ROM (Read-Only Memory) is non-volatile and stores permanent firmware or BIOS. Must correctly distinguish volatility, speed, and use case for both types.",
+    "expected_answer": null
+  },
+  {
+    "task_id": "org-T02",
+    "category": "mathematical_reasoning",
+    "prompt": "A warehouse starts with 2,400 units. In Q1 it sells 37% of stock. In Q2 it restocks 800 units. In Q3 it sells 640 units. How many units remain at the end of Q3?",
+    "expected_intent": "Correctly arrives at 1,672 units remaining. The calculation must follow: 2400 minus 888 (37% of 2400) equals 1512, plus 800 equals 2312, minus 640 equals 1672.",
+    "expected_answer": "1672"
+  },
+  {
+    "task_id": "org-T02b",
+    "category": "mathematical_reasoning",
+    "prompt": "A recipe requires 3/4 cup of sugar for 12 cookies. How much sugar is needed for 30 cookies? If sugar costs $2.40 per cup, what is the total cost of sugar for 30 cookies?",
+    "expected_intent": "Correctly calculates: 30 cookies need (3/4 x 30/12) = 1.875 cups of sugar. Total cost = 1.875 x $2.40 = $4.50. Both answers must be correct. Minor rounding (1.87 or 1.88 cups) is acceptable if the final cost rounds correctly to $4.50.",
+    "expected_answer": "4.50"
+  },
+  {
+    "task_id": "org-T03",
+    "category": "sentiment_classification",
+    "prompt": "Classify the sentiment of this customer review as Positive, Negative, or Neutral and give a one-sentence reason: 'The product arrived two days late and the packaging was damaged, but the item worked perfectly and customer support resolved my complaint within an hour.'",
+    "expected_intent": "Classifies as Mixed, Neutral, or Positive (any of these three labels is acceptable), provided the one-sentence reason acknowledges BOTH the negative experience (late delivery, damaged packaging) AND the positive outcome (working product, responsive support). A Negative classification does NOT pass. A reason that acknowledges only one side does NOT pass, regardless of the label.",
+    "expected_answer": null
+  },
+  {
+    "task_id": "org-T03b",
+    "category": "sentiment_classification",
+    "prompt": "Classify the sentiment of this tweet as Positive, Negative, or Neutral and give a one-sentence reason: 'Just got my order. Box was dented and the manual was missing, but honestly the device itself is flawless and set up in under 5 minutes.'",
+    "expected_intent": "Classifies as Mixed, Neutral, or Positive (any of these three labels is acceptable), provided the reason acknowledges BOTH negative aspects (dented box, missing manual) AND positive aspects (flawless device, fast setup). A Negative classification does NOT pass. A reason that acknowledges only one side does NOT pass, regardless of the label.",
+    "expected_answer": null
+  },
+  {
+    "task_id": "org-T04",
+    "category": "text_summarisation",
+    "prompt": "Summarize the following passage in exactly two sentences: 'Machine learning is increasingly deployed in healthcare for diagnosis, treatment planning, and patient monitoring. These systems analyse medical images, predict patient deterioration, and spot patterns in electronic health records that might be missed by human clinicians. However, concerns remain about model interpretability, data privacy, liability when errors occur, and the potential for algorithmic bias to worsen existing healthcare disparities. Regulatory frameworks are still catching up with the pace of deployment, creating uncertainty for healthcare providers and technology developers alike.'",
+    "expected_intent": "Exactly two sentences. Must capture BOTH the opportunity (ML assisting clinical tasks: image analysis, prediction, pattern recognition) AND the key challenges (interpretability, bias, privacy, liability, regulatory lag). Omitting either side, or producing more/fewer than two sentences, does NOT pass.",
+    "expected_answer": null,
+    "constraints": {"sentence_count": 2}
+  },
+  {
+    "task_id": "org-T04b",
+    "category": "text_summarisation",
+    "prompt": "Summarize the following passage in exactly three bullet points, each no longer than 15 words: 'Remote work has transformed how companies operate globally. Employees gain flexibility and reduced commute times, leading to reported improvements in work-life balance. However, challenges persist around collaboration, company culture, and the blurring of personal and professional boundaries. Organisations are responding by investing in digital collaboration tools and rethinking office space as a hub for social and creative work rather than daily attendance.'",
+    "expected_intent": "Exactly three bullet points, each under 15 words. Must cover: (1) remote work benefits (flexibility, work-life balance), (2) challenges (collaboration, culture, boundary blur), (3) organisational response (digital tools, reimagined office use). More/fewer than three bullets, or any bullet exceeding 15 words, does NOT pass.",
+    "expected_answer": null,
+    "constraints": {"bullet_count": 3, "max_words_per_bullet": 15}
+  },
+  {
+    "task_id": "org-T05",
+    "category": "named_entity_recognition",
+    "prompt": "Extract all named entities from the following text and label each as PERSON, ORGANIZATION, LOCATION, or DATE: 'On March 15 2023, Sundar Pichai announced that Google would open a new AI research lab in Zurich, partnering with ETH Zurich to focus on large language model safety.'",
+    "expected_intent": "Correctly identifies and labels all five distinct entities: Sundar Pichai (PERSON), March 15 2023 (DATE), Google (ORGANIZATION), Zurich (LOCATION), ETH Zurich (ORGANIZATION). All five must be present with correct labels. Missing an entity or mislabelling more than one does NOT pass.",
+    "expected_answer": null,
+    "expected_entities": ["Sundar Pichai", "March 15 2023", "Google", "Zurich", "ETH Zurich"]
+  }
+]

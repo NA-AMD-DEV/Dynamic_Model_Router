@@ -100,11 +100,11 @@ def score_ner(task, answer: str) -> float:
 
 
 def score_summary(task, answer: str) -> float:
-    """Checks the stated format constraint (sentence/word count) actually
-    holds, then falls back to keyword overlap for content coverage. A
-    summary that ignores 'exactly one sentence' fails regardless of content
-    quality, matching how a real judge would treat an instruction-following
-    failure.
+    """Checks the stated format constraint (sentence/word count, or bullet
+    count + per-bullet word limit) actually holds, then falls back to
+    keyword overlap for content coverage. A summary that ignores 'exactly
+    one sentence' fails regardless of content quality, matching how a real
+    judge would treat an instruction-following failure.
     """
     constraints = task.get("constraints", {})
     text = answer.strip()
@@ -119,6 +119,21 @@ def score_summary(task, answer: str) -> float:
         sentences = [s for s in re.split(r"(?<=[.!?])\s+", text) if s.strip()]
         if len(sentences) != constraints["sentence_count"]:
             return 0.0
+
+    if "bullet_count" in constraints or "max_words_per_bullet" in constraints:
+        # A bullet is any line starting with -, *, •, or a numbered marker.
+        bullet_lines = [
+            line.strip() for line in text.splitlines()
+            if re.match(r"^\s*([-*\u2022]|\d+[.)])\s+", line)
+        ]
+        if "bullet_count" in constraints and len(bullet_lines) != constraints["bullet_count"]:
+            return 0.0
+        if "max_words_per_bullet" in constraints:
+            for line in bullet_lines:
+                # strip the marker itself before counting words
+                content = re.sub(r"^\s*([-*\u2022]|\d+[.)])\s+", "", line)
+                if len(content.split()) > constraints["max_words_per_bullet"]:
+                    return 0.0
 
     return heuristic_score_generic(task, answer)
 

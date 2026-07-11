@@ -63,6 +63,10 @@ everything else is a manual look.
 
 - [ ] Docker image is pushed to a **public** registry and confirmed pullable (test with `docker pull <image>` from a clean/different machine or after `docker rmi` locally)
 - [ ] Staying within the 10-submissions-per-hour rate limit — don't burn slots on untested changes
+- [ ] **Do NOT repeatedly resubmit to try to force a new/better score.** Organizers confirmed (Day 2-3) the leaderboard backend is processing a large queue; some delays/errors are infrastructure-related, not a reflection of project quality. Resubmitting doesn't move you up the queue and adds more load for everyone. Self-check locally first (this checklist + `preflight_check.py`), then submit once.
+- [ ] If you see status `INFRA_ERROR` — organizer doc confirms this officially: "a backend-side scoring issue... does not automatically mean your project failed... these cases are handled by the judging process... repeated resubmission is not needed." Don't assume it's your bug; don't spam resubmit.
+- [ ] `MISSING_TASKS` is its own official status (separate from a generic schema error) — your output skipped one or more input tasks. Return exactly one result per input task_id, preserve IDs exactly, never silently skip a task even if it failed internally.
+- [ ] Container runs with **no local-only files required** and **no private secrets required** beyond the injected env vars — organizer's official pre-submit checklist explicitly calls both out. Test by running the container on a clean machine with nothing but the published env vars set.
 - [ ] Run the full `run_eval.py` pipeline one final time against the actual built image (not just the Python module) before submitting — see Phase 5 in the team README
 - [ ] After submitting, check your registry's download/pull counter (GitHub Packages, Docker Hub, etc.) — organizers confirmed this shows whether your image has actually been pulled for grading yet, useful while waiting during a backlog
 
