@@ -1,0 +1,110 @@
+{
+  "_readme": [
+    "R3's eval set. Each entry: task_id, prompt, category (the category we EXPECT",
+    "routing to pick), and expected_intent (what a correct answer must convey --",
+    "fed to the judge, not to the agent).",
+    "",
+    "This is a STARTER set: 2-3 tasks per category. The guide (P1/P3) calls for",
+    "3-5+ per category with harder reworded variants. R3 owns expanding this and",
+    "guarding against memorisation -- add fresh rewordings the agent has not seen.",
+    "The agent never sees `category` or `expected_intent`; they are ground truth."
+  ],
+  "tasks": [
+    {
+      "task_id": "e_fact_1",
+      "prompt": "What is the capital of Australia?",
+      "category": "factual_knowledge",
+      "expected_intent": "States that the capital of Australia is Canberra."
+    },
+    {
+      "task_id": "e_fact_2",
+      "prompt": "In which year did the first human land on the Moon?",
+      "category": "factual_knowledge",
+      "expected_intent": "States the year 1969."
+    },
+    {
+      "task_id": "e_math_1",
+      "prompt": "What is 15% of 240?",
+      "category": "math_reasoning",
+      "expected_intent": "Gives the answer 36."
+    },
+    {
+      "task_id": "e_math_2",
+      "prompt": "A train travels 60 km in 45 minutes. What is its average speed in km/h?",
+      "category": "math_reasoning",
+      "expected_intent": "Gives the answer 80 km/h."
+    },
+    {
+      "task_id": "e_sent_1",
+      "prompt": "What is the sentiment of this review: 'Absolutely loved it, best purchase this year.'",
+      "category": "sentiment_classification",
+      "expected_intent": "Classifies the sentiment as positive."
+    },
+    {
+      "task_id": "e_sent_2",
+      "prompt": "Is this feedback positive or negative: 'The product broke after two days and support ignored me.'",
+      "category": "sentiment_classification",
+      "expected_intent": "Classifies the sentiment as negative."
+    },
+    {
+      "task_id": "e_summ_1",
+      "prompt": "Summarise in one sentence: The committee met for three hours, debated the budget at length, rejected two proposals, and finally approved a reduced spending plan for the next quarter.",
+      "category": "summarisation",
+      "expected_intent": "One-sentence summary capturing that the committee approved a reduced budget after long debate."
+    },
+    {
+      "task_id": "e_summ_2",
+      "prompt": "Give a one-line summary: Rainfall this year was well below average, reservoirs are low, and the city has introduced water-use restrictions.",
+      "category": "summarisation",
+      "expected_intent": "One-line summary capturing drought conditions leading to water restrictions."
+    },
+    {
+      "task_id": "e_ner_1",
+      "prompt": "Extract the named entities from: Ada Lovelace worked with Charles Babbage in London.",
+      "category": "named_entity_recognition",
+      "expected_intent": "Identifies Ada Lovelace and Charles Babbage as people and London as a location."
+    },
+    {
+      "task_id": "e_ner_2",
+      "prompt": "List the named entities: Apple announced the new device at a conference in Cupertino on Tuesday.",
+      "category": "named_entity_recognition",
+      "expected_intent": "Identifies Apple as an organisation and Cupertino as a location (Tuesday as a date is acceptable)."
+    },
+    {
+      "task_id": "e_debug_1",
+      "prompt": "This function should return the average but crashes on an empty list. Fix it: def avg(xs): return sum(xs)/len(xs)",
+      "category": "code_debugging",
+      "expected_intent": "Returns a corrected function that handles the empty-list case (e.g. returns 0 or guards len==0) as a single code block."
+    },
+    {
+      "task_id": "e_debug_2",
+      "prompt": "What's wrong with this and fix it: def is_even(n): return n % 2 == 1",
+      "category": "code_debugging",
+      "expected_intent": "Identifies the inverted logic and returns a corrected function using n % 2 == 0."
+    },
+    {
+      "task_id": "e_logic_1",
+      "prompt": "If Alice is taller than Bob, and Bob is taller than Carol, who is the shortest?",
+      "category": "logical_reasoning",
+      "expected_intent": "Concludes Carol is the shortest."
+    },
+    {
+      "task_id": "e_logic_2",
+      "prompt": "Tom is older than Sara. Sara is older than Rob. Rob is older than Kim. Who is the second oldest?",
+      "category": "logical_reasoning",
+      "expected_intent": "Concludes Sara is the second oldest."
+    },
+    {
+      "task_id": "e_codegen_1",
+      "prompt": "Write a Python function that returns True if a string is a palindrome.",
+      "category": "code_generation",
+      "expected_intent": "Returns a correct Python function checking palindromes, as a single code block."
+    },
+    {
+      "task_id": "e_codegen_2",
+      "prompt": "Write a Python function that returns the factorial of a non-negative integer n.",
+      "category": "code_generation",
+      "expected_intent": "Returns a correct factorial function as a single code block."
+    }
+  ]
+}

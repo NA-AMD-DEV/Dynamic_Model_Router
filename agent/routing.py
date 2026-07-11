@@ -19,10 +19,22 @@ DEFAULT_CATEGORY = "factual_knowledge"
 
 # First match wins. Ordered most-specific to least.
 PRIORITY: list[tuple[str, list[str]]] = [
+    # Sentiment before code/math: "positive or negative" and "feedback" are
+    # unambiguous, and words like "product" (as in "the product broke") must not
+    # leak into math. A clear sentiment ask wins outright.
+    ("sentiment_classification", [
+        r"\bsentiment\b", r"\bpositive or negative\b", r"\bnegative or positive\b",
+        r"\b(positive|negative|neutral)\b.*\b(tone|review|opinion|feedback|sentiment)\b",
+        r"\b(review|feedback|opinion)\b.*\b(positive|negative|neutral)\b",
+        r"\bhow does .* feel\b",
+    ]),
+    # Debugging before generation: repair language ("fix", "crashes", "bug")
+    # means we're mending existing code, even when the word "function" appears.
     ("code_debugging", [
-        r"\bbug\b", r"\bdebug\b", r"\bfix\b.*\b(function|code|bug)\b",
-        r"\bwhat'?s wrong with\b", r"\bcompiles?\b", r"\bsyntax error\b",
-        r"\bdoesn'?t work\b", r"\braises?\b.*\berror\b",
+        r"\bbug\b", r"\bdebug\b",
+        r"\bfix\b", r"\bcrash(es|ed|ing)?\b", r"\bwhat'?s wrong with\b",
+        r"\bcompiles?\b", r"\bsyntax error\b", r"\bdoesn'?t work\b",
+        r"\braises?\b.*\berror\b", r"\bshould (return|do|be)\b.*\bbut\b",
     ]),
     ("code_generation", [
         r"```",
@@ -34,23 +46,22 @@ PRIORITY: list[tuple[str, list[str]]] = [
         r"\bpuzzle\b", r"\bconstraint\b", r"\beither .* or\b",
         r"\bif .* then\b", r"\btrue or false\b",
         r"\bwho (is|owns|lives|likes)\b",  # classic logic-grid phrasing
+        r"\bwho is the (tallest|shortest|oldest|youngest|second|first|last)\b",
     ]),
     ("math_reasoning", [
         r"\bcalculate\b", r"\bcompute\b", r"\bsolve\b",
         r"\bhow (much|many)\b",
-        r"\b(sum|product|remainder|quotient|derivative|integral)\b",
-        r"\bequation\b", r"\bpercent(age)?\b",
+        r"\b(remainder|quotient|derivative|integral)\b",  # dropped bare 'product'/'sum'
+        r"\bequation\b", r"\bpercent(age)?\b", r"%\s*of\b",
+        r"\bwhat is\b.*\d+.*\b(of|times|plus|minus|divided|multiplied)\b",
+        r"\baverage (speed|of)\b",
         r"\d+\s*[+\-*/^]\s*\d+",
     ]),
     ("named_entity_recognition", [
         r"\bnamed entit", r"\bentit(y|ies)\b",
         r"\bextract .*\b(name|person|place|organi[sz]ation|location|date)s?\b",
+        r"\blist the (named )?entit", r"\blist the named\b",
         r"\b(person|organi[sz]ation|location)s? mentioned\b",
-    ]),
-    ("sentiment_classification", [
-        r"\bsentiment\b", r"\bpositive or negative\b",
-        r"\b(positive|negative|neutral)\b.*\b(tone|review|opinion)\b",
-        r"\bhow does .* feel\b",
     ]),
     ("summarisation", [
         r"\bsummari[sz]e\b", r"\bsummary\b", r"\btl;?dr\b",

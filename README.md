@@ -77,10 +77,59 @@ The judging VM enforces these; violating any one scores zero.
 
 Three vertical slices, one owner each, meeting only at `answer_task`:
 
-- **Container & harness** — Dockerfile, entrypoint, the `/input` → `/output` loop, error handling, routing
-- **Model & prompt** — the Fireworks client, per-category prompts and caps, the tuning loop
-- **Eval & QA** — a local harness mirroring the real one, a hand-built eval set across all 8 categories, a local LLM judge, and final go/no-go
+| Slice | Files | What it does |
+|---|---|---|
+| **Container & harness** | `agent/main.py`, `agent/routing.py`, `Dockerfile` | Reads `/input`, routes each task to a category, writes `/output`, guarantees the contract even on failure. Zero-token keyword routing. |
+| **Model & prompt** | `agent/fireworks_client.py`, `agent/config.py`, `agent/core.py` | The only code that calls Fireworks. Per-category prompts, model choice, and `max_tokens`, all overridable by env var without a rebuild. |
+| **Eval & QA** | `eval/` | Local harness mirror, starter eval set across the 8 categories, a local LLM judge, and the `score` go/no-go command. |
+
+The 8 categories are `factual_knowledge`, `math_reasoning`, `sentiment_classification`, `summarisation`, `named_entity_recognition`, `code_debugging`, `logical_reasoning`, `code_generation`. `agent/routing.py` and `agent/config.py` must agree on this set — a test enforces it.
+
+## Running it
+
+Set credentials first (never commit them — see `.env.example`):
+
+```
+export FIREWORKS_API_KEY=...  FIREWORKS_BASE_URL=...  ALLOWED_MODELS=model-a,model-b
+```
+
+**Locally, harness-style** (no Docker):
+
+```
+python -m eval.run_local fixtures/tasks.json out/results.json
+```
+
+**Score against the eval set** (accuracy gate proxy + total tokens — the ranking metric):
+
+```
+python -m eval.score            # exits non-zero if below the proxy gate
+```
+
+**In the container:**
+
+```
+docker build --platform linux/amd64 -t dynamic-model-router:dev .
+docker run --rm -v "$PWD/fixtures:/input:ro" -v "$PWD/out:/output" \
+  -e FIREWORKS_API_KEY -e FIREWORKS_BASE_URL -e ALLOWED_MODELS \
+  dynamic-model-router:dev
+```
+
+**Tests** (no key or network needed — the Fireworks client is mocked):
+
+```
+python -m pytest tests/ -q
+```
+
+### Token-efficiency knobs (per category, no rebuild)
+
+R2 tunes without editing code: `ROUTER_<CATEGORY>_MODEL`, `ROUTER_<CATEGORY>_MODEL_INDEX`, `ROUTER_<CATEGORY>_MAX_TOKENS`, `ROUTER_<CATEGORY>_SYSTEM`. Example: `ROUTER_CODE_GENERATION_MAX_TOKENS=256`. Set `ROUTER_CONCURRENCY=N` to parallelise (default 1; each worker is one in-flight call, so it's also the rate-limit blast radius).
 
 ## Status
 
-Scaffolding not yet committed. See `AMD_Track1_Interactive_Guide.html` for the full phase-by-phase plan, per-role task breakdown, and the pre-submission checklist.
+Container, routing, model/prompt wiring, and the eval harness all run and are covered by `tests/` (42 passing). Still open, and requiring a live Fireworks key + human judgment (not something the code can self-certify):
+
+- **R2** — measure real accuracy and token cost per category via `python -m eval.score`, then drive tokens down (the Phase 4 squeeze). The prompts and budgets in `agent/config.py` are reasonable starting points, not tuned numbers.
+- **R3** — expand `eval/eval_set.json` beyond the 2–3 starter tasks per category with harder rewordings, then own the go/no-go sign-off.
+- **Docker build** — unverified locally (no daemon available when this was built); run the build command above on a clean machine before submitting.
+
+See `AMD_Track1_Interactive_Guide.html` for the full phase-by-phase plan and the pre-submission checklist.

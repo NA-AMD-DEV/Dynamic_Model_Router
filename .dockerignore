@@ -11,5 +11,6 @@ __pycache__/
 venv/
 fixtures/
 tests/
+eval/
 requirements-dev.txt
 out/

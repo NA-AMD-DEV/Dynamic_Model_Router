@@ -116,6 +116,12 @@ def test_malformed_input_still_leaves_valid_json(tmp_path, monkeypatch):
         ("Calculate 17 * 23 and subtract 40.", "math_reasoning"),
         ("", "factual_knowledge"),
         ("What is the capital of Australia?", "factual_knowledge"),
+        # Regressions the eval-set routing check caught (was misrouting):
+        ("What is 15% of 240?", "math_reasoning"),
+        ("A train travels 60 km in 45 minutes. What is its average speed in km/h?", "math_reasoning"),
+        ("Is this feedback positive or negative: 'the product broke after two days.'", "sentiment_classification"),
+        ("This function should return the average but crashes on an empty list. Fix it: def avg(xs): return sum(xs)/len(xs)", "code_debugging"),
+        ("List the named entities: Apple announced it in Cupertino.", "named_entity_recognition"),
     ],
 )
 def test_classify(prompt, expected):

@@ -21,6 +21,19 @@ def answer_task(task: dict) -> str:
     its category; `classify` infers it and `config_for` supplies that
     category's model, system prompt, and max_tokens.
     """
+    return answer_task_detailed(task)["answer"]
+
+
+def answer_task_detailed(task: dict) -> dict:
+    """Same work as `answer_task`, but returns the full record R3 needs to
+    total the ranking metric:
+
+        {"answer": str, "category": str, "tokens": int, "error": str | None}
+
+    `answer_task` is the frozen container-facing seam (str only); this is the
+    eval-facing one. Both go through the exact same code path so the tokens
+    R3 measures are the tokens the container actually spends.
+    """
     prompt = task.get("prompt", "")
     category = classify(prompt)
     cfg = config_for(category)
@@ -31,4 +44,9 @@ def answer_task(task: dict) -> str:
         model=cfg.model,
         max_tokens=cfg.max_tokens,
     )
-    return result["answer"]
+    return {
+        "answer": result["answer"],
+        "category": category,
+        "tokens": result["tokens"],
+        "error": result["error"],
+    }

@@ -1,0 +1,102 @@
+"""Tests for the R3 eval slice: the token-accounting seam, the judge, and the
+scorer. These use a mocked Fireworks client so they need no key and no network.
+"""
+
+import json
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+import agent.fireworks_client as fc
+from agent.core import answer_task, answer_task_detailed
+
+
+def _mock_completion(content: str, tokens: int):
+    resp = MagicMock()
+    resp.choices[0].message.content = content
+    resp.usage.total_tokens = tokens
+    return resp
+
+
+@pytest.fixture
+def mock_client(monkeypatch):
+    monkeypatch.setenv("ALLOWED_MODELS", "test-model")
+    fake = MagicMock()
+    monkeypatch.setattr(fc, "_get_client", lambda: fake)
+    return fake
+
+
+def test_detailed_seam_exposes_tokens_and_category(mock_client):
+    mock_client.chat.completions.create.return_value = _mock_completion("  hi  ", 37)
+    detail = answer_task_detailed({"task_id": "t1", "prompt": "What is 15% of 240?"})
+    assert detail["answer"] == "hi"          # stripped
+    assert detail["tokens"] == 37            # the ranking metric, not dropped
+    assert detail["category"] == "math_reasoning"
+    assert detail["error"] is None
+
+
+def test_frozen_seam_still_returns_bare_str(mock_client):
+    mock_client.chat.completions.create.return_value = _mock_completion("answer", 5)
+    out = answer_task({"task_id": "t1", "prompt": "hello"})
+    assert isinstance(out, str) and out == "answer"
+
+
+def test_detailed_and_frozen_agree_on_answer(mock_client):
+    mock_client.chat.completions.create.return_value = _mock_completion("same", 9)
+    task = {"task_id": "t1", "prompt": "hello"}
+    assert answer_task(task) == answer_task_detailed(task)["answer"]
+
+
+def test_call_model_never_raises_without_credentials(monkeypatch):
+    # No key set: must return an error dict, not raise -- eval tooling has no
+    # per-call guard of its own.
+    monkeypatch.delenv("FIREWORKS_API_KEY", raising=False)
+    monkeypatch.delenv("FIREWORKS_BASE_URL", raising=False)
+    monkeypatch.setattr(fc, "_client", None)
+    result = fc.call_model("p", "s", "m", 10)
+    assert result["answer"] == "" and result["tokens"] == 0
+    assert result["error"] is not None
+
+
+def test_judge_scores_empty_answer_zero_without_a_call(monkeypatch):
+    from eval.judge import score_one
+
+    # An empty candidate must not cost a judge call.
+    called = {"n": 0}
+
+    def spy(*a, **k):
+        called["n"] += 1
+        return {"answer": "1", "tokens": 1, "error": None}
+
+    monkeypatch.setattr("eval.judge.call_model", spy)
+    verdict = score_one("q", "intent", "   ")
+    assert verdict["score"] == 0
+    assert called["n"] == 0  # no tokens spent on a non-answer
+
+
+def test_judge_parses_digit_from_noisy_output(monkeypatch):
+    from eval.judge import score_one
+
+    monkeypatch.setattr(
+        "eval.judge.call_model",
+        lambda **k: {"answer": "Score: 1", "tokens": 2, "error": None},
+    )
+    assert score_one("q", "intent", "a real answer")["score"] == 1
+
+
+def test_eval_set_is_wellformed_and_covers_all_categories():
+    from agent.config import CATEGORIES
+
+    data = json.loads(
+        (__import__("pathlib").Path("eval/eval_set.json")).read_text(encoding="utf-8")
+    )
+    tasks = data["tasks"]
+    for t in tasks:
+        assert {"task_id", "prompt", "category", "expected_intent"} <= t.keys()
+        assert t["category"] in CATEGORIES, f"{t['task_id']} uses unknown category"
+    covered = {t["category"] for t in tasks}
+    assert covered == set(CATEGORIES), (
+        f"eval set missing categories: {set(CATEGORIES) - covered}"
+    )
+    ids = [t["task_id"] for t in tasks]
+    assert len(ids) == len(set(ids)), "duplicate task_id in eval set"

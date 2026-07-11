@@ -37,7 +37,14 @@ def call_model(prompt: str, system_prompt: str, model: str, max_tokens: int) -> 
     if models and model not in models:
         model = models[0]  # safety net: never call a disallowed model
 
-    client = _get_client()
+    # Missing credentials is a config error, not a transient one: fail fast
+    # rather than sleeping through a pointless retry. Still returns a dict --
+    # call_model never raises, so callers without their own guard stay safe.
+    try:
+        client = _get_client()
+    except RuntimeError as exc:
+        return {"answer": "", "tokens": 0, "error": str(exc)}
+
     for attempt in range(2):  # 1 retry on transient error
         try:
             response = client.chat.completions.create(
