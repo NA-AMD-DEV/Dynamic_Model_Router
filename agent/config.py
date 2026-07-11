@@ -224,61 +224,85 @@ def _override_int(category: str, field: str, fallback: int) -> int:
 # bake the fewest-tokens-that-passes model per category here or via
 # ROUTER_<CATEGORY>_MODEL=<exact id> / ROUTER_<CATEGORY>_MODEL_INDEX=n.
 #
-# Token budgets DO differ by category (cheap asks get tiny caps; code and
-# multi-step reasoning need headroom) — that's a safe, model-independent lever.
-# System prompts are billed as prompt tokens on EVERY call: every word here
-# must either raise accuracy or shorten the output. Constraint kept, filler cut.
+# Token budgets DO differ by category — but the official sample tasks proved
+# the real answers are FULLER than our first guesses (a two-sided sentiment
+# reason, explanations when asked, exact summary formats). The judge scores
+# correctness first; a truncated or generic answer fails regardless of tokens.
+# Caps are sized so the REQUIRED output is never truncated (the eval's
+# truncation counter validates this); prompts demand exactly what the official
+# rubric grades, nothing extra.
 _DEFAULTS: dict[str, _Default] = {
     "factual_knowledge": _Default(
         0,
-        "Reply with only the answer, concisely. No preamble.",
-        150,
+        # Real tasks may ask for an explanation ("...and briefly explain why").
+        # "Answer only, no preamble" produced the generic answers the official
+        # FAQ warns about.
+        "Answer the question directly and completely, including any explanation "
+        "it asks for. Be concise; no filler.",
+        250,
         tier="small",
     ),
     "math_reasoning": _Default(
         0,
-        "Solve internally; output ONLY the final answer. No working shown.",
-        200,
-        tier="large",  # solver handles most; fallback residue is the hard case
+        # Official samples are multi-step ("minor arithmetic shown or implied"
+        # is acceptable). Brief working improves correctness on weak models;
+        # verbose derivations waste tokens.
+        "Solve carefully step by step. Show only brief working, then state the "
+        "final answer(s) clearly.",
+        300,
+        tier="large",  # solver handles the trivial residue; the rest is hard
     ),
     "sentiment_classification": _Default(
         0,
-        # Label only: the grader scores the label; a 'reason' sentence is
-        # ~10-15 billed tokens buying nothing.
-        "Reply with one word: positive, negative, or neutral. Nothing else.",
-        10,
+        # Official rubric: label + one-sentence reason; when the text has both
+        # good and bad aspects, the reason MUST acknowledge both, and a bare
+        # label fails. (The earlier label-only cap-10 config scored 0% on this.)
+        "Give the sentiment label the prompt asks for, then a one-sentence "
+        "reason. If the text mixes positive and negative aspects, acknowledge "
+        "both in the reason and prefer 'mixed' or 'neutral' over one-sided labels.",
+        80,
         tier="small",
     ),
     "summarisation": _Default(
         0,
-        "Match the prompt's length/format constraint exactly. "
+        # Official rubric fails any deviation from the requested format
+        # ("exactly two sentences", "exactly three bullets, each <=15 words").
+        "Obey the prompt's format constraint EXACTLY (sentence count, bullet "
+        "count, word limits). Cover the key points from all sides of the text. "
         "Output ONLY the summary.",
-        150,
+        200,
         tier="medium",
     ),
     "named_entity_recognition": _Default(
         0,
-        "Reply ONLY with label: value pairs, one entity per line "
-        "(e.g. PERSON: John Smith).",
-        120,
+        # Official rubric: every entity present, labels exact.
+        "Extract ALL named entities. Label each as PERSON, ORGANIZATION, "
+        "LOCATION, or DATE (or the labels the prompt requests), one "
+        "'LABEL: value' per line. Miss nothing; no prose.",
+        150,
         tier="small",
     ),
     "code_debugging": _Default(
         0,
-        "Return ONLY the corrected, complete function in one code block. No prose.",
+        # No official sample exists for code categories (blind spot): keep the
+        # corrected code mandatory, allow a brief why only when asked.
+        "Fix the code. Return the corrected, complete code in one code block; "
+        "add a brief explanation only if the prompt asks why.",
         400,
         tier="medium",
         specialist="code",
     ),
     "logical_reasoning": _Default(
         0,
-        "Reason internally; output ONLY the final answer. No reasoning shown.",
+        "Reason carefully internally. State the final answer clearly; add a "
+        "brief justification only if the prompt asks for one.",
         200,
-        tier="large",  # solver handles most; fallback residue is the hard case
+        tier="large",  # solver handles the trivial residue; the rest is hard
     ),
     "code_generation": _Default(
         0,
-        "Return ONLY one code block with the complete implementation. No explanation.",
+        "Write the requested code. Return the complete implementation in one "
+        "code block; add a brief explanation only if the prompt asks for one.",
         400,
         tier="medium",
         specialist="code",
