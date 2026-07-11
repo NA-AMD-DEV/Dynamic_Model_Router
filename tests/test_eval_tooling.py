@@ -32,7 +32,9 @@ def mock_client(monkeypatch):
 
 def test_detailed_seam_exposes_tokens_and_category(mock_client):
     mock_client.chat.completions.create.return_value = _mock_completion("  hi  ", 37)
-    detail = answer_task_detailed({"task_id": "t1", "prompt": "What is 15% of 240?"})
+    # A math prompt the solver deliberately defers on (multi-step phrasing), so
+    # this still exercises the model path and its token accounting.
+    detail = answer_task_detailed({"task_id": "t1", "prompt": "Calculate 17 * 23 and then subtract 40."})
     assert detail["answer"] == "hi"          # stripped
     assert detail["tokens"] == 37            # the ranking metric, not dropped
     assert detail["category"] == "math_reasoning"
