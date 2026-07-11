@@ -48,22 +48,28 @@ Invariants:
 - All inference routes through `FIREWORKS_BASE_URL` using `FIREWORKS_API_KEY`. Bypass it and tokens aren't recorded, so you can't rank.
 - Only models listed in `ALLOWED_MODELS` (published on launch day). Read and split it at runtime; never hardcode IDs and never bundle a `.env`.
 
-## Where the tokens go
+## Correctness first, then tokens
 
-Levers, roughly in order of impact:
+The official rubric (public validation samples) grades fuller answers than a
+token-minimal instinct produces: sentiment wants a label **plus a one-sentence
+reason acknowledging both sides** of a mixed review; factual tasks may demand a
+brief explanation; summaries must match the requested format **exactly**
+(sentence/bullet counts, word limits); NER wants every entity with exact
+labels; math is multi-step. Prompts and caps in `agent/config.py` are sized to
+that rubric — an answer that saves tokens but fails the gate scores zero.
+
+Token levers, applied only after correctness:
 
 | Lever | What it means |
 |---|---|
-| **Deterministic solvers** | Math and logic answered in Python at **zero tokens** — see below |
+| **Deterministic solvers** | Trivial single-step math/logic answered in Python at **zero tokens** — see below |
 | Model tiering | Hard categories → the largest capable model; cheap ones (sentiment, NER) → the smallest — see below |
-| `max_tokens` cap | Hard output ceiling per task type |
-| System prompt length | One ruthlessly short shared prefix, billed on every call |
+| `max_tokens` cap | Ceiling per task type, sized so the *required* output is never truncated |
 | No printed reasoning | Reasoning tokens count — `reasoning_effort=none`, tunable per category |
-| Answer-only output | No preamble, no restating the question; inline `<think>` blocks stripped |
 | Single call per task | No self-critique loops unless a category needs them |
 | Category routing | Keyword heuristic, not a model call — a classifier would spend tokens to save tokens |
 
-**Zero-token solvers (`agent/solvers.py`).** The ranking metric is total proxy tokens, and an answer computed in Python never calls the model — so it costs 0 tokens *and* can't be got wrong by a weak model. `solve_math` handles percent-of, discounts, even splits, powers, average speed, and clean arithmetic (via an AST whitelist, never `eval`). `solve_logic` handles transitive comparison and spatial-ordering puzzles (a "greater-than" graph + unique topological sort). Both are **precision-first**: any ambiguity returns `None` and falls back to the model (routed to the `large` tier, since the residue is the hard case). A confident-but-wrong 0-token answer would cost the accuracy gate, which is worse than paying tokens.
+**Zero-token solvers (`agent/solvers.py`).** An answer computed in Python never calls the model — 0 tokens *and* can't be got wrong by a weak model. `solve_math` handles short, direct single-step asks (percent-of, single discount, even splits, powers, single-unit average speed, bare arithmetic via an AST whitelist — never `eval`); `solve_logic` handles clean transitive/spatial ordering. Both are **ultra-conservative**: any multi-step signal, second question, negation, tie, or markup-then-discount pricing defers to the model — real tasks are mostly multi-step, so solvers are a safe bonus, not the main path. Three near-miss misfires (a fraction inside a recipe problem, a mixed-unit duration, a markup+discount) are locked in as regression tests.
 
 **Adaptive model tiering (`agent/config.py`).** The exact models on judging day aren't knowable in advance, so no model or vendor name is ever hardcoded. `pick_capability` ranks whatever `ALLOWED_MODELS` contains, purely from a parameter count parsed out of each id (`qwen3-30b-a3b` → 30, `llama-3.3-70b-instruct` → 70); each category's `_Default.tier` (`small` / `medium` / `large`) then resolves to a real model id at call time. Ids with no parseable size (common on flagship/commercial names like `kimi-k2p6`, `deepseek-v4-pro`) fall in after every sized model — an imperfect heuristic, not a guarantee. Once the real list is known, `python -m eval.score` measures the actual fewest-tokens-that-passes model per category, and that gets pinned via `ROUTER_<CATEGORY>_MODEL`.
 
