@@ -106,16 +106,16 @@ def test_malformed_input_still_leaves_valid_json(tmp_path, monkeypatch):
 @pytest.mark.parametrize(
     "prompt,expected",
     [
-        ("Summarize what this function does: def f(x): return x", "code"),
-        ("Summarise in one sentence: the fox jumped.", "summarization"),
-        ("Write a Python function that reverses a list.", "code"),
-        ("What is the sentiment of this review: 'loved it'", "sentiment"),
-        ("Extract the named entities from: Ada met Charles.", "ner"),
-        ("Translate into Spanish: where is the station?", "translation"),
-        ("Calculate 17 * 23 and subtract 40.", "math"),
-        ("Classify this email as spam or not spam: 'free cruise'", "classification"),
-        ("", "general"),
-        ("Ponder the nature of a Tuesday afternoon.", "general"),
+        ("Summarize what this function does: def f(x): return x", "code_generation"),
+        ("Summarise in one sentence: the fox jumped.", "summarisation"),
+        ("Write a Python function that reverses a list.", "code_generation"),
+        ("What's wrong with this function, it raises an error: def f(x): return x/0", "code_debugging"),
+        ("What is the sentiment of this review: 'loved it'", "sentiment_classification"),
+        ("Extract the named entities from: Ada met Charles.", "named_entity_recognition"),
+        ("If Alice is taller than Bob, and Bob is taller than Carol, who is shortest?", "logical_reasoning"),
+        ("Calculate 17 * 23 and subtract 40.", "math_reasoning"),
+        ("", "factual_knowledge"),
+        ("What is the capital of Australia?", "factual_knowledge"),
     ],
 )
 def test_classify(prompt, expected):
@@ -126,35 +126,35 @@ def test_classify(prompt, expected):
 
 def test_allowed_models_is_read_at_call_time(monkeypatch):
     monkeypatch.setenv("ALLOWED_MODELS", "tiny, mid, big")
-    assert config_for("sentiment").model == "tiny"
+    assert config_for("factual_knowledge").model == "tiny"
     monkeypatch.setenv("ALLOWED_MODELS", "other")
-    assert config_for("sentiment").model == "other"
+    assert config_for("factual_knowledge").model == "other"
 
 
 def test_explicit_model_override_beats_index(monkeypatch):
     monkeypatch.setenv("ALLOWED_MODELS", "tiny, mid")
-    monkeypatch.setenv("ROUTER_CODE_MODEL", "pinned")
-    assert config_for("code").model == "pinned"
+    monkeypatch.setenv("ROUTER_CODE_GENERATION_MODEL", "pinned")
+    assert config_for("code_generation").model == "pinned"
 
 
 def test_model_index_clamps_rather_than_crashing(monkeypatch):
     monkeypatch.setenv("ALLOWED_MODELS", "tiny, mid")
-    monkeypatch.setenv("ROUTER_CODE_MODEL_INDEX", "99")
-    assert config_for("code").model == "mid"
+    monkeypatch.setenv("ROUTER_CODE_GENERATION_MODEL_INDEX", "99")
+    assert config_for("code_generation").model == "mid"
 
 
 def test_unparseable_override_falls_back_to_default(monkeypatch):
-    monkeypatch.setenv("ROUTER_CODE_MAX_TOKENS", "not-a-number")
-    assert config_for("code").max_tokens == 512
+    monkeypatch.setenv("ROUTER_CODE_GENERATION_MAX_TOKENS", "not-a-number")
+    assert config_for("code_generation").max_tokens == 400
 
 
 def test_max_tokens_override_applies(monkeypatch):
-    monkeypatch.setenv("ROUTER_SENTIMENT_MAX_TOKENS", "3")
-    assert config_for("sentiment").max_tokens == 3
+    monkeypatch.setenv("ROUTER_SENTIMENT_CLASSIFICATION_MAX_TOKENS", "3")
+    assert config_for("sentiment_classification").max_tokens == 3
 
 
-def test_unknown_category_falls_back_to_general():
-    assert config_for("nonsense") == config_for("general")
+def test_unknown_category_falls_back_to_default():
+    assert config_for("nonsense") == config_for("factual_knowledge")
 
 
 def test_every_routed_category_has_a_config():
@@ -162,3 +162,12 @@ def test_every_routed_category_has_a_config():
 
     for name, _ in PRIORITY:
         assert name in CATEGORIES, f"router emits {name!r} with no config"
+
+
+def test_every_config_category_is_reachable_by_routing():
+    """The inverse check: a config nobody routes to never gets exercised."""
+    from agent.routing import DEFAULT_CATEGORY as ROUTING_DEFAULT
+    from agent.routing import PRIORITY
+
+    routed = {name for name, _ in PRIORITY} | {ROUTING_DEFAULT}
+    assert routed == set(CATEGORIES)

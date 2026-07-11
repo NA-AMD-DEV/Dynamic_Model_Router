@@ -16,7 +16,7 @@ import os
 import sys
 from dataclasses import dataclass
 
-DEFAULT_CATEGORY = "general"
+DEFAULT_CATEGORY = "factual_knowledge"
 
 
 @dataclass(frozen=True)
@@ -80,22 +80,60 @@ def _override_int(category: str, field: str, fallback: int) -> int:
         return fallback
 
 
-# Answer-only instruction shared by every category. Every token here is billed
-# on every call, so it stays one line.
-_BASE = "Answer only. No preamble, no explanation, no restating the question."
-
-# R2: tune these. Cheap categories get tiny budgets; code and multi-step math
-# need headroom. model_index is an offset into ALLOWED_MODELS, not an ID.
+# R2: tune these. The 8 keys are the official hackathon categories — keep them
+# in sync with agent/routing.py's PRIORITY list. Cheap categories get tiny
+# budgets; code and multi-step reasoning need headroom. model_index is an
+# offset into ALLOWED_MODELS (0 = cheapest, not an ID).
 _DEFAULTS: dict[str, _Default] = {
-    "sentiment": _Default(0, f"{_BASE} Reply with one word.", 5),
-    "ner": _Default(0, f"{_BASE} One 'label: value' per line.", 64),
-    "classification": _Default(0, f"{_BASE} Reply with the label only.", 10),
-    "extraction": _Default(0, f"{_BASE} Output the extracted values only.", 96),
-    "summarization": _Default(0, f"{_BASE} Honour any requested length.", 128),
-    "translation": _Default(0, f"{_BASE} Output the translation only.", 256),
-    "math": _Default(1, f"{_BASE} Give the final answer only.", 256),
-    "code": _Default(1, f"{_BASE} One code block. No prose.", 512),
-    DEFAULT_CATEGORY: _Default(1, _BASE, 512),
+    "factual_knowledge": _Default(
+        0,
+        "Answer the question directly and concisely. "
+        "No preamble, no restating the question. Answer only.",
+        150,
+    ),
+    "math_reasoning": _Default(
+        1,
+        "Solve the problem step by step internally, but output ONLY the final "
+        "numeric or short answer. Do not show your work. Answer only.",
+        200,
+    ),
+    "sentiment_classification": _Default(
+        0,
+        "Classify the sentiment as positive, negative, or neutral. "
+        "Reply in the format: label: <sentiment> | reason: <one short sentence>. "
+        "Nothing else.",
+        60,
+    ),
+    "summarisation": _Default(
+        0,
+        "Summarise the given text to exactly match the requested length/format "
+        "constraint in the prompt. Output ONLY the summary, nothing else.",
+        150,
+    ),
+    "named_entity_recognition": _Default(
+        0,
+        "Extract named entities. Reply ONLY as label:value pairs, one per line "
+        "(e.g. PERSON: John Smith). No prose, no explanation.",
+        120,
+    ),
+    "code_debugging": _Default(
+        1,
+        "Find the bug and return ONLY the corrected, complete function in a single "
+        "code block. No explanation, no prose before or after.",
+        400,
+    ),
+    "logical_reasoning": _Default(
+        1,
+        "Solve the constraint puzzle. Verify all conditions are satisfied internally, "
+        "but output ONLY the final answer. No reasoning shown.",
+        200,
+    ),
+    "code_generation": _Default(
+        1,
+        "Write the function exactly as specified. Return ONLY a single code block "
+        "with the complete, correct implementation. No explanation.",
+        400,
+    ),
 }
 
 CATEGORIES: tuple[str, ...] = tuple(_DEFAULTS)

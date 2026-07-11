@@ -1,12 +1,12 @@
 """The shared seam. R1 calls it, R2 implements it, R3 tests it.
 
-R2: replace the body of `answer_task` with the real Fireworks call. Keep the
-signature and the two invariants below; the container and the eval harness both
-depend on them.
+Frozen signature and both invariants below; the container and the eval
+harness depend on them.
 """
 
-from agent.routing import classify
 from agent.config import config_for
+from agent.fireworks_client import call_model
+from agent.routing import classify
 
 
 def answer_task(task: dict) -> str:
@@ -25,6 +25,10 @@ def answer_task(task: dict) -> str:
     category = classify(prompt)
     cfg = config_for(category)
 
-    # R2: this is where the Fireworks call goes. `cfg` gives you
-    # cfg.model, cfg.system, cfg.max_tokens for this category.
-    return f"[stub:{category}] {prompt[:60]}"
+    result = call_model(
+        prompt=prompt,
+        system_prompt=cfg.system,
+        model=cfg.model,
+        max_tokens=cfg.max_tokens,
+    )
+    return result["answer"]
