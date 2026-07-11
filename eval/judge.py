@@ -3,8 +3,14 @@ estimate whether we clear it BEFORE submitting.
 
 The judge scores each answer against its expected_intent, not against an exact
 string, because the real gate scores intent. It routes through the same
-Fireworks client the agent uses, so judging costs tokens too -- keep the judge
-model cheap and its output tiny (a single 0/1).
+Fireworks client the agent uses.
+
+Judge tokens are LOCAL-ONLY -- they never count toward the competition ranking
+(only the agent's calls through the real harness do). So the judge is allowed
+to reason: reasoning models (e.g. deepseek-v4-pro) cannot emit a verdict under
+a tiny max_tokens, so we give it room and read the LAST 0/1 it produces (the
+verdict comes after any reasoning). A cramped judge silently scores everything
+0 -- that was the original bug.
 
 R3: the real gate's threshold and rubric are unknown. Treat this as a proxy,
 keep a safety margin, and re-check with fresh rewordings. A locally 'passing'
@@ -20,11 +26,15 @@ from agent.fireworks_client import call_model
 # Judge with a cheap model by default; override if R3 wants a stronger judge.
 JUDGE_MODEL_ENV = "JUDGE_MODEL"
 
+# Enough room for a reasoning model to think and then emit its verdict. Override
+# via JUDGE_MAX_TOKENS. Judge cost is local-only, so err generous, not stingy.
+JUDGE_MAX_TOKENS = int(os.environ.get("JUDGE_MAX_TOKENS", "2000"))
+
 _JUDGE_SYSTEM = (
     "You are a strict grader. You are given a QUESTION, the EXPECTED INTENT of a "
-    "correct answer, and a CANDIDATE answer. Reply with exactly '1' if the "
-    "candidate satisfies the expected intent, or '0' if it does not. Reply with "
-    "only the single digit, nothing else."
+    "correct answer, and a CANDIDATE answer. Decide whether the candidate "
+    "satisfies the expected intent. You may reason briefly, but your reply must "
+    "END with a single line containing only '1' (satisfies) or '0' (does not)."
 )
 
 
@@ -49,18 +59,23 @@ def score_one(prompt: str, expected_intent: str, candidate: str) -> dict:
         f"QUESTION:\n{prompt}\n\n"
         f"EXPECTED INTENT:\n{expected_intent}\n\n"
         f"CANDIDATE:\n{candidate}\n\n"
-        "Does the candidate satisfy the expected intent? Reply 1 or 0."
+        "Does the candidate satisfy the expected intent? "
+        "End with a line containing only 1 or 0."
     )
     result = call_model(
         prompt=user,
         system_prompt=_JUDGE_SYSTEM,
         model=_judge_model(),
-        max_tokens=1,
+        max_tokens=JUDGE_MAX_TOKENS,
     )
     if result["error"]:
         return {"score": 0, "error": result["error"]}
 
-    # Be forgiving about the model wrapping the digit in stray text.
-    m = re.search(r"[01]", result["answer"])
-    score = int(m.group()) if m else 0
-    return {"score": score, "error": None}
+    # The verdict is the LAST 0/1 the model emits -- a reasoning model produces
+    # the digit after its thinking, and stray 0/1 may appear mid-reasoning.
+    digits = re.findall(r"[01]", result["answer"])
+    if not digits:
+        # Model answered but never produced a verdict digit (e.g. ran out of
+        # room mid-reasoning). Surface it rather than silently scoring 0.
+        return {"score": 0, "error": f"no verdict digit in judge output: {result['answer'][:120]!r}"}
+    return {"score": int(digits[-1]), "error": None}

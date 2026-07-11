@@ -84,6 +84,37 @@ def test_judge_parses_digit_from_noisy_output(monkeypatch):
     assert score_one("q", "intent", "a real answer")["score"] == 1
 
 
+def test_judge_takes_last_digit_after_reasoning(monkeypatch):
+    # A reasoning model thinks first (with stray digits) then gives its verdict
+    # last. This is the case that made the whole eval score 0% -- the verdict is
+    # the FINAL digit, not the first.
+    from eval.judge import score_one
+
+    reasoning = (
+        "Let me check. The candidate says 30. There are 3 friends and the "
+        "expected value is 0 remainder... actually the candidate is correct.\n1"
+    )
+    monkeypatch.setattr(
+        "eval.judge.call_model",
+        lambda **k: {"answer": reasoning, "tokens": 40, "error": None},
+    )
+    assert score_one("q", "intent", "30")["score"] == 1
+
+
+def test_judge_reports_error_when_no_verdict_digit(monkeypatch):
+    # Reasoning ran out of room before emitting a verdict -- surface it rather
+    # than silently scoring 0 (which hides a broken judge as a failing answer).
+    from eval.judge import score_one
+
+    monkeypatch.setattr(
+        "eval.judge.call_model",
+        lambda **k: {"answer": "Let me think about whether this", "tokens": 5, "error": None},
+    )
+    verdict = score_one("q", "intent", "some answer")
+    assert verdict["score"] == 0
+    assert verdict["error"] is not None and "no verdict digit" in verdict["error"]
+
+
 def test_eval_set_is_wellformed_and_covers_all_categories():
     from agent.config import CATEGORIES
 
