@@ -75,7 +75,21 @@ is fake) and a token report.
       fixtures: 91.7% vs 10.4%, and the two riskiest new tasks (the mutable-
       default-arg test and the 5-runner logic puzzle) were independently
       solved/brute-forced to confirm correctness before trusting them.
-- [ ] Phase 2: wire the real LLM-judge backend once Fireworks creds exist
+- [x] Phase 2: real LLM-judge backend wired and verified. Two bugs fixed
+      along the way: reasoning models (gpt-oss-20b, deepseek-v4-pro) need a
+      much larger max_tokens budget and <think>-block stripping, since a tiny
+      budget gets consumed by internal reasoning before the model reaches its
+      final answer. Also fixed a design gap where the llm backend was asking
+      the LLM to subjectively judge code/NER/summary-format correctness
+      instead of using the deterministic checks already built for the
+      heuristic backend -- now both backends share those checks, and only
+      genuinely open-ended tasks (factual knowledge, sentiment nuance, some
+      summary content) go to the real LLM judgment call. Verified against
+      good_agent_for_testing.py: 97.9% (47/48), clears the 80% gate cleanly,
+      code categories both 100% (real execution, not LLM guessing).
+      JUDGE_MODEL=accounts/fireworks/models/gpt-oss-120b (fast, cheap, works
+      well); deepseek-v4-pro also works but is much slower per call due to
+      its size -- fine for the team's actual routing, not ideal as a judge.
 - [ ] Phase 4: token leaderboard tracking as R2 tunes prompts
 - [ ] Phase 5: dress rehearsal — run `preflight_check.py` against the actual
       built Docker image + Dockerfile (`--dockerfile`, `--image` flags), not

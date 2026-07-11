@@ -160,6 +160,17 @@ def heuristic_score(task, answer: str) -> float:
 def llm_score(task, answer: str, client, judge_model: str) -> float:
     """Real LLM-as-judge call. Requires the `openai` package and Fireworks
     (or any OpenAI-compatible) credentials in the environment.
+
+    Some judge models (e.g. gpt-oss-20b) are reasoning models: they spend
+    tokens on an internal chain-of-thought before emitting the final answer.
+    With a tiny max_tokens budget, the whole budget can be consumed by
+    reasoning and the model never gets to output the actual digit, leaving
+    message.content empty or None. To handle that:
+      - max_tokens is generous enough for reasoning + a short final answer
+      - any <think>...</think> block is stripped before parsing
+      - parsing looks for the LAST standalone 0/1 in the text, rather than
+        assuming the whole response is a single character
+      - None/empty content is treated as a scoring failure (0.0), not a crash
     """
     prompt = f"""You are grading an AI agent's answer for a hackathon accuracy gate.
 
@@ -173,16 +184,33 @@ The agent's answer:
 {answer}
 
 Score this answer as either 1 (meets the expected intent) or 0 (does not).
-Reply with ONLY the single digit 1 or 0, nothing else."""
+End your reply with ONLY the single digit 1 or 0 on its own, as the very last character."""
 
     resp = client.chat.completions.create(
         model=judge_model,
         messages=[{"role": "user", "content": prompt}],
-        max_tokens=3,
+        max_tokens=3000,
         temperature=0,
+        timeout=90,  # a stuck/dropped connection should fail loudly, not hang forever
     )
-    raw = resp.choices[0].message.content.strip()
-    return 1.0 if raw.startswith("1") else 0.0
+    raw = resp.choices[0].message.content
+
+    if not raw:
+        print(f"WARNING: judge returned empty/None content for task {task.get('task_id')} "
+              f"(reasoning model likely exhausted max_tokens on internal thinking) -- scoring 0.", file=sys.stderr)
+        return 0.0
+
+    # strip any visible chain-of-thought block before parsing the answer
+    cleaned = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL)
+
+    matches = re.findall(r"\b[01]\b", cleaned)
+    if matches:
+        return 1.0 if matches[-1] == "1" else 0.0
+
+    # last-resort fallback: no clean digit found anywhere
+    print(f"WARNING: could not parse a 0/1 from judge response for task {task.get('task_id')} "
+          f"(raw: {raw[:100]!r}) -- scoring 0.", file=sys.stderr)
+    return 0.0
 
 
 def make_llm_client():
@@ -229,7 +257,11 @@ def main():
 
     per_category = defaultdict(lambda: {"n": 0, "passed": 0, "failures": []})
 
-    for task_id, task in eval_tasks.items():
+    total_tasks = len(eval_tasks)
+    for i, (task_id, task) in enumerate(eval_tasks.items(), 1):
+        if args.backend == "llm":
+            print(f"[{i}/{total_tasks}] grading {task_id}...", file=sys.stderr, flush=True)
+
         answer = results.get(task_id)
         category = task["category"]
         per_category[category]["n"] += 1
@@ -238,10 +270,29 @@ def main():
             per_category[category]["failures"].append({"task_id": task_id, "reason": "missing from results.json"})
             continue
 
-        if args.backend == "heuristic":
+        # Deterministic checks (code execution, NER entity matching, summary
+        # format constraints) apply regardless of backend -- there's no
+        # reason to throw away ground-truth verification and let an LLM
+        # subjectively guess whether code runs correctly when we can just
+        # run it. Only genuinely open-ended tasks (no test_cases/entities/
+        # constraints to check against) fall back to keyword-overlap
+        # (heuristic backend) or a real LLM judgment call (llm backend).
+        has_deterministic_check = (
+            (category in ("code_debugging", "code_generation") and task.get("test_cases"))
+            or category == "named_entity_recognition"
+            or (category == "text_summarisation" and task.get("constraints"))
+        )
+
+        if has_deterministic_check:
             score = heuristic_score(task, answer)
+        elif args.backend == "heuristic":
+            score = heuristic_score_generic(task, answer)
         else:
-            score = llm_score(task, answer, client, judge_model)
+            try:
+                score = llm_score(task, answer, client, judge_model)
+            except Exception as e:
+                print(f"WARNING: judge call failed for task {task_id} ({e!r}) -- scoring 0, continuing.", file=sys.stderr)
+                score = 0.0
 
         if score >= 1.0:
             per_category[category]["passed"] += 1
