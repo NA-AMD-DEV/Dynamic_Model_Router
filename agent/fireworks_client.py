@@ -77,7 +77,8 @@ def _strip_think(text: str) -> str:
     return text.strip()
 
 
-def call_model(prompt: str, system_prompt: str, model: str, max_tokens: int) -> dict:
+def call_model(prompt: str, system_prompt: str, model: str, max_tokens: int,
+               reasoning_effort: str | None = None) -> dict:
     """Single call to Fireworks. Retries once on transient failure, then
     degrades to a best-effort empty answer so the task still returns.
 
@@ -89,6 +90,10 @@ def call_model(prompt: str, system_prompt: str, model: str, max_tokens: int) -> 
     are too small to include prompts), and tuning the wrong lever wastes work.
     `truncated` means the answer hit max_tokens (finish_reason == "length"):
     those tokens were billed for an answer that will likely be judged wrong.
+
+    `reasoning_effort` overrides the global default for this one call. The
+    agent path passes a per-category value; the judge (eval/judge.py) passes
+    nothing, so it keeps the generous global default it needs to emit a verdict.
     """
     models = allowed_models()
     if models and model not in models:
@@ -107,7 +112,9 @@ def call_model(prompt: str, system_prompt: str, model: str, max_tokens: int) -> 
         {"role": "user", "content": prompt},
     ]
     # extra_body carries reasoning_effort; dropped if the model rejects it.
-    extra_body = {"reasoning_effort": REASONING_EFFORT} if REASONING_EFFORT else None
+    # An explicit per-call value wins; None means "use the global default".
+    effort = reasoning_effort if reasoning_effort is not None else REASONING_EFFORT
+    extra_body = {"reasoning_effort": effort} if effort else None
 
     # Two independent retry budgets, so a param-drop retry never consumes the
     # transient one (a range(2) loop here once fell off the end and returned

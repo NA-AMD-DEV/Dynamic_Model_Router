@@ -109,6 +109,35 @@ def test_reasoning_param_rejection_falls_back(monkeypatch):
     assert seen == [{"reasoning_effort": "none"}, None]  # tried with, then without
 
 
+def test_per_category_reasoning_effort_overrides_global(monkeypatch):
+    # A per-category effort passed by the agent path wins over the global; the
+    # judge, which passes nothing, is unaffected.
+    monkeypatch.setenv("ALLOWED_MODELS", "test-model")
+    monkeypatch.setattr(fc, "REASONING_EFFORT", "none")
+    seen = []
+
+    def create(**kw):
+        seen.append(kw.get("extra_body"))
+        return _mock_completion("ok", 10)
+
+    fake = MagicMock()
+    fake.chat.completions.create = create
+    monkeypatch.setattr(fc, "_get_client", lambda: fake)
+
+    fc.call_model("p", "s", "test-model", 100, reasoning_effort="low")
+    assert seen == [{"reasoning_effort": "low"}]           # explicit per-call value
+    seen.clear()
+    fc.call_model("p", "s", "test-model", 100)             # judge-style: no arg
+    assert seen == [{"reasoning_effort": "none"}]          # falls to global default
+
+
+def test_config_for_threads_reasoning_effort(monkeypatch):
+    from agent.config import config_for
+    monkeypatch.setenv("ROUTER_CODE_DEBUGGING_REASONING_EFFORT", "low")
+    assert config_for("code_debugging").reasoning == "low"
+    assert config_for("factual_knowledge").reasoning is None  # default: global
+
+
 def test_reasoning_param_sent_when_enabled(monkeypatch):
     monkeypatch.setenv("ALLOWED_MODELS", "test-model")
     monkeypatch.setattr(fc, "REASONING_EFFORT", "none")

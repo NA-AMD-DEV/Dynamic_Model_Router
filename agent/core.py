@@ -77,6 +77,7 @@ def answer_task_detailed(task: dict) -> dict:
         system_prompt=cfg.system,
         model=cfg.model,
         max_tokens=cfg.max_tokens,
+        reasoning_effort=cfg.reasoning,
     )
     return {
         "answer": result["answer"],

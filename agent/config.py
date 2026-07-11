@@ -24,6 +24,7 @@ class Config:
     model: str
     system: str
     max_tokens: int
+    reasoning: str | None = None  # per-category reasoning_effort; None = global default
 
 
 @dataclass(frozen=True)
@@ -42,6 +43,7 @@ class _Default:
     system: str
     max_tokens: int
     tier: str = ""
+    reasoning: str | None = None  # None -> global REASONING_EFFORT (usually "none")
 
 
 def allowed_models() -> list[str]:
@@ -213,8 +215,12 @@ def config_for(category: str) -> Config:
         else:
             model = pick_model(spec.model_index)
 
+    # None (unset) keeps the global default; setting it (even to "") overrides.
+    reasoning = os.environ.get(_env_key(category, "REASONING_EFFORT"), spec.reasoning)
+
     return Config(
         model=model,
         system=os.environ.get(_env_key(category, "SYSTEM"), spec.system),
         max_tokens=_override_int(category, "MAX_TOKENS", spec.max_tokens),
+        reasoning=reasoning,
     )
