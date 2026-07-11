@@ -2,7 +2,12 @@
 
 The ranking metric is total tokens through the proxy, gated on accuracy. Any
 task we can answer correctly in Python never touches the model, so it costs
-zero tokens AND can't be got wrong by a weak model. That's the whole point.
+zero tokens AND can't be got wrong by a weak model.
+
+Scope check (official samples): the real tasks are mostly MULTI-STEP, which
+these solvers deliberately refuse -- so they're a safe bonus for the trivial
+cases that do appear, not the primary answer path. Coverage was traded away
+for precision on purpose.
 
 The hard rule here is **precision over coverage**: a confidently-wrong 0-token
 answer is worse than paying the model, because it drags down the accuracy gate
@@ -117,6 +122,26 @@ def _parse_count(token: str) -> int | None:
 # MATH
 # ============================================================================
 
+# Signals that a problem needs MORE than one operation. The official sample
+# tasks are multi-step (sell 37%, restock, sell again; scale a recipe THEN
+# price it) and a partial match would return a confidently-wrong answer --
+# e.g. the bare-expression matcher once grabbed the "3/4" out of a recipe
+# problem and answered "0.75". Any of these signals => every math solver
+# defers to the model. Missing a 0-token win is cheap; a wrong shortcut costs
+# the accuracy gate.
+_MULTISTEP = re.compile(
+    r"\b(then|after|afterwards|next|later|followed by|q[1-4]|"
+    r"restocks?|remains?|remaining|left(?: over)?|"
+    r"total(?: cost| price| amount)?|in total|altogether|combined|overall)\b",
+    re.I,
+)
+
+
+def _too_complex(prompt: str) -> bool:
+    """More than one question, or any multi-step signal: not solver territory."""
+    return prompt.count("?") >= 2 or bool(_MULTISTEP.search(prompt))
+
+
 _RE_PERCENT_OF = re.compile(r"(\d+(?:\.\d+)?)\s*%\s*of\s*(\d+(?:\.\d+)?)", re.I)
 _RE_POWER = re.compile(
     r"(\d+(?:\.\d+)?)\s*(?:to the power of|raised to(?: the power of)?|\*\*|\^)\s*(\d+(?:\.\d+)?)",
@@ -138,6 +163,10 @@ _SPLIT_WORDS = re.compile(r"\b(split|evenly|each pay|per person|divided (?:among
 
 
 def _solve_percent_of(prompt: str) -> str | None:
+    # Only a short, direct ask ("What is 15% of 240?"). Embedded in longer
+    # prose, "X% of Y" is usually one step of a bigger problem.
+    if len(prompt) > 60:
+        return None
     m = _RE_PERCENT_OF.search(prompt)
     if not m:
         return None
@@ -222,9 +251,11 @@ def _solve_average_speed(prompt: str) -> str | None:
 
 
 def _solve_expression(prompt: str) -> str | None:
-    # Only safe when there's exactly one symbolic expression and no *words* that
-    # imply a further operation the symbols didn't capture.
-    if _RE_EXTRA_OP.search(prompt):
+    # Only safe when the prompt essentially IS the expression ("Compute
+    # 144 / 12."): short, exactly one symbolic expression, and no words that
+    # imply a further operation. A fraction inside a word problem ("3/4 cup of
+    # sugar for 12 cookies...") must never fire.
+    if len(prompt) > 80 or _RE_EXTRA_OP.search(prompt):
         return None
     matches = _RE_EXPR.findall(prompt)
     if len(matches) != 1:
@@ -246,8 +277,13 @@ _MATH_SOLVERS = (
 def solve_math(prompt: str) -> str | None:
     """Answer an arithmetic word problem deterministically, or None to defer to
     the model. First confident solver wins; order matters (percent-of and
-    discount are checked before the generic expression matcher)."""
-    if not prompt:
+    discount are checked before the generic expression matcher).
+
+    Ultra-conservative by design: real tasks are usually multi-step, and every
+    solver defers the moment the prompt shows a second operation or question.
+    Solvers are a safe 0-token bonus for the trivial cases, not the main path.
+    """
+    if not prompt or _too_complex(prompt):
         return None
     for solver in _MATH_SOLVERS:
         try:
@@ -299,6 +335,13 @@ _ORDINALS = {
 _RE_ORDINAL = re.compile(r"\b(second|2nd|third|3rd|fourth|4th|fifth|5th|sixth|6th)\b", re.I)
 # Syllogisms and yes/no deductions: not safe to solve by ordering. Defer.
 _SYLLOGISM = re.compile(r"\b(can we conclude|does (?:it|this) follow|conclude that|all\s+\w+\s+are)\b", re.I)
+# Negation, exceptions, and equality break the simple ">" graph: "Alice is NOT
+# taller than Bob" would still match the comparative regex and add a WRONG
+# edge. Any of these words => defer to the model.
+_LOGIC_DEFER = re.compile(
+    r"\b(not|except|unless|neither|nor|same|equal(?:ly)?|tie[ds]?|as \w+ as)\b|n't",
+    re.I,
+)
 
 
 def _collect_edges(prompt: str) -> list[tuple[str, str]] | None:
@@ -366,9 +409,10 @@ def solve_logic(prompt: str) -> str | None:
     """Answer a transitive ordering / spatial puzzle, or None to defer.
 
     Precision-first: any ambiguity (non-unique order, missing target word,
-    ordinal without a direction, out-of-range index, syllogism) returns None.
+    ordinal without a direction, out-of-range index, syllogism, negation,
+    exception, or equality wording) returns None.
     """
-    if not prompt or _SYLLOGISM.search(prompt):
+    if not prompt or _SYLLOGISM.search(prompt) or _LOGIC_DEFER.search(prompt):
         return None
 
     edges = _collect_edges(prompt)

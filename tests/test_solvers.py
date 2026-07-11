@@ -61,6 +61,29 @@ def test_solve_math_defers(prompt):
     assert solve_math(prompt) is None
 
 
+# --- math: OFFICIAL sample tasks are multi-step -- must defer, never misfire.
+# T02b once misfired: the bare-expression matcher grabbed "3/4" and answered
+# "0.75" (correct answer: $4.50). A confidently-wrong 0-token answer is the
+# worst possible outcome for the accuracy gate.
+
+@pytest.mark.parametrize("prompt", [
+    # T02 (warehouse, multi-step inventory)
+    "A warehouse starts with 2,400 units. In Q1 it sells 37% of stock. "
+    "In Q2 it restocks 800 units. In Q3 it sells 640 units. "
+    "How many units remain at the end of Q3?",
+    # T02b (recipe scaling THEN pricing -- the "3/4" -> "0.75" misfire)
+    "A recipe requires 3/4 cup of sugar for 12 cookies. How much sugar is "
+    "needed for 30 cookies? If sugar costs $2.40 per cup, what is the total "
+    "cost of sugar for 30 cookies?",
+    # percent-of embedded in longer prose: one step of a bigger problem
+    "The stock index rose 15% of 240 points in the morning and then fell back.",
+    # two questions = two computations
+    "What is 20% of 50? And what is 30% of 90?",
+])
+def test_solve_math_defers_on_official_multistep(prompt):
+    assert solve_math(prompt) is None
+
+
 # --- logic: the eval-set cases ---------------------------------------------
 
 @pytest.mark.parametrize("prompt,expected", [
@@ -94,6 +117,12 @@ def test_solve_logic_paraphrases(prompt, expected):
     "Who is the tallest?",                                                        # no premises
     "Alice is taller than Bob. Who is faster?",                                   # no superlative match target... 'faster'? none
     "If it rains, the ground is wet. It is raining. Is the ground wet?",          # not an ordering
+    # Negation would add a WRONG edge if the comparative regex fired:
+    "Alice is not taller than Bob. Bob is taller than Carol. Who is the tallest?",
+    "Alice isn't taller than Bob. Who is the shortest?",
+    # Equality/ties break a strict ordering:
+    "Alice and Bob are equally tall. Bob is taller than Carol. Who is the tallest?",
+    "Everyone except Dana beat Evan. Who came first?",
 ])
 def test_solve_logic_defers(prompt):
     assert solve_logic(prompt) is None
