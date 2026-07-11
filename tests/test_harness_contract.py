@@ -152,6 +152,29 @@ def test_explicit_model_override_beats_index(monkeypatch):
     assert config_for("code_generation").model == "pinned"
 
 
+def test_tier_matches_family_by_name(monkeypatch):
+    # Real injection: strong categories land on Kimi, cheap on MiniMax, by
+    # substring -- with no assumption about list order.
+    monkeypatch.setenv("ALLOWED_MODELS", "accounts/x/minimax-m1, accounts/x/kimi-k2-instruct")
+    assert config_for("code_generation").model.endswith("kimi-k2-instruct")   # strong
+    assert config_for("sentiment_classification").model.endswith("minimax-m1")  # cheap
+
+
+def test_tier_falls_back_to_model_index_when_no_family_matches(monkeypatch):
+    # Generic/unknown ids: tier can't match, so it lands on model_index (0),
+    # never guessing by order.
+    monkeypatch.setenv("ALLOWED_MODELS", "tiny, mid, big")
+    assert config_for("code_generation").model == "tiny"      # strong tier, index 0
+    assert config_for("sentiment_classification").model == "tiny"  # cheap tier, index 0
+
+
+def test_model_index_env_beats_tier(monkeypatch):
+    monkeypatch.setenv("ALLOWED_MODELS", "minimax-a, kimi-b")
+    monkeypatch.setenv("ROUTER_CODE_GENERATION_MODEL_INDEX", "0")
+    # Explicit index wins over the strong tier's name match.
+    assert config_for("code_generation").model == "minimax-a"
+
+
 def test_model_index_clamps_rather_than_crashing(monkeypatch):
     monkeypatch.setenv("ALLOWED_MODELS", "tiny, mid")
     monkeypatch.setenv("ROUTER_CODE_GENERATION_MODEL_INDEX", "99")

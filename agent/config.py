@@ -32,10 +32,16 @@ class _Default:
 
     `model_index` selects from ALLOWED_MODELS rather than naming a model, since
     the real IDs aren't published until launch day. 0 is the cheapest/first.
+
+    `tier` ("strong" | "cheap" | "") is a soft preference: if a model whose id
+    matches that tier's family is present, use it; otherwise fall back to
+    `model_index`. It never assumes list order — a generic/unknown injection
+    just lands on `model_index` and still runs.
     """
     model_index: int
     system: str
     max_tokens: int
+    tier: str = ""
 
 
 def allowed_models() -> list[str]:
@@ -55,6 +61,33 @@ def pick_model(preference: int = 0) -> str:
     if not models:
         return ""
     return models[min(max(preference, 0), len(models) - 1)]
+
+
+# Known model families for the two tiers. The harness injects MiniMax and the
+# Kimi K-series; matching by substring lets us route hard categories to the
+# stronger family WITHOUT assuming the list is ordered. This only LABELS the
+# tiers -- the final per-category choice is measured (fewest tokens that clears
+# the gate) and baked into _DEFAULTS or a ROUTER_<CAT>_MODEL override.
+_TIER_PATTERNS: dict[str, tuple[str, ...]] = {
+    "strong": ("kimi", "-k2", "k2-", "kimi-k"),
+    "cheap": ("minimax",),
+}
+
+
+def pick_tier(tier: str, fallback_index: int = 0) -> str:
+    """Return the first ALLOWED_MODELS entry whose id matches `tier`'s family,
+    or `pick_model(fallback_index)` if none match (so an unrecognised injection
+    still runs on a model that exists). "" when ALLOWED_MODELS is unset.
+    """
+    models = allowed_models()
+    if not models:
+        return ""
+    patterns = _TIER_PATTERNS.get(tier, ())
+    for model in models:
+        low = model.lower()
+        if any(p in low for p in patterns):
+            return model
+    return pick_model(fallback_index)
 
 
 def _env_key(category: str, field: str) -> str:
@@ -83,13 +116,15 @@ def _override_int(category: str, field: str, fallback: int) -> int:
 # R2: tune these. The 8 keys are the official hackathon categories — keep them
 # in sync with agent/routing.py's PRIORITY list.
 #
-# model_index defaults to 0 for EVERY category on purpose: the harness does not
-# promise ALLOWED_MODELS is ordered by capability, so we make no assumption
-# about which injected model is "stronger". Index 0 is just "the first model
-# they gave us", and it always exists. Once R2 has MEASURED which model each
-# category needs (via `python -m eval.score`), point specific categories at a
-# different one with a per-category override — no ordering assumption, no
-# rebuild:  ROUTER_<CATEGORY>_MODEL=<exact id>  or  ROUTER_<CATEGORY>_MODEL_INDEX=n
+# `tier` is the INITIAL routing guess to measure against, not the final answer:
+# hard categories (code, factual, summarisation) lean on the strong family
+# (Kimi), cheap ones (sentiment, NER) on the small family (MiniMax). math/logic
+# are answered by agent/solvers.py at 0 tokens; when the solver defers, the
+# fallback goes STRONG, since that residue is the hard/ambiguous case. The tier
+# never assumes list order — if neither family is present it lands on
+# model_index (0). Once MEASURED (via `python -m eval.score`), bake the
+# fewest-tokens-that-passes model per category here or via
+# ROUTER_<CATEGORY>_MODEL=<exact id> / ROUTER_<CATEGORY>_MODEL_INDEX=n.
 #
 # Token budgets DO differ by category (cheap asks get tiny caps; code and
 # multi-step reasoning need headroom) — that's a safe, model-independent lever.
@@ -100,11 +135,13 @@ _DEFAULTS: dict[str, _Default] = {
         0,
         "Reply with only the answer, concisely. No preamble.",
         150,
+        tier="strong",
     ),
     "math_reasoning": _Default(
         0,
         "Solve internally; output ONLY the final answer. No working shown.",
         200,
+        tier="strong",  # solver handles most; fallback residue is the hard case
     ),
     "sentiment_classification": _Default(
         0,
@@ -112,33 +149,39 @@ _DEFAULTS: dict[str, _Default] = {
         # ~10-15 billed tokens buying nothing.
         "Reply with one word: positive, negative, or neutral. Nothing else.",
         10,
+        tier="cheap",
     ),
     "summarisation": _Default(
         0,
         "Match the prompt's length/format constraint exactly. "
         "Output ONLY the summary.",
         150,
+        tier="strong",
     ),
     "named_entity_recognition": _Default(
         0,
         "Reply ONLY with label: value pairs, one entity per line "
         "(e.g. PERSON: John Smith).",
         120,
+        tier="cheap",
     ),
     "code_debugging": _Default(
         0,
         "Return ONLY the corrected, complete function in one code block. No prose.",
         400,
+        tier="strong",
     ),
     "logical_reasoning": _Default(
         0,
         "Reason internally; output ONLY the final answer. No reasoning shown.",
         200,
+        tier="strong",  # solver handles most; fallback residue is the hard case
     ),
     "code_generation": _Default(
         0,
         "Return ONLY one code block with the complete implementation. No explanation.",
         400,
+        tier="strong",
     ),
 }
 
@@ -156,11 +199,19 @@ def config_for(category: str) -> Config:
         category = DEFAULT_CATEGORY
         spec = _DEFAULTS[DEFAULT_CATEGORY]
 
-    # An explicit model ID beats the index. R2 uses this to pin one category to
-    # a specific model mid-experiment without disturbing the others.
+    # Model precedence, most specific first:
+    #   1. ROUTER_<CAT>_MODEL       -- an explicit pinned id
+    #   2. ROUTER_<CAT>_MODEL_INDEX -- an explicit index into ALLOWED_MODELS
+    #   3. the category's tier      -- name-matched family, else model_index
+    #   4. model_index default
     model = os.environ.get(_env_key(category, "MODEL"))
     if not model:
-        model = pick_model(_override_int(category, "MODEL_INDEX", spec.model_index))
+        if os.environ.get(_env_key(category, "MODEL_INDEX")) is not None:
+            model = pick_model(_override_int(category, "MODEL_INDEX", spec.model_index))
+        elif spec.tier:
+            model = pick_tier(spec.tier, spec.model_index)
+        else:
+            model = pick_model(spec.model_index)
 
     return Config(
         model=model,
