@@ -50,19 +50,20 @@ Invariants:
 
 ## Where the tokens go
 
-Seven levers, roughly in order of impact:
+Levers, roughly in order of impact:
 
 | Lever | What it means |
 |---|---|
-| Model choice | Smallest allowed model that still passes each category |
+| **Deterministic solvers** | Math and logic answered in Python at **zero tokens** — see below |
+| Model tiering | Hard categories → the strong family (Kimi); cheap ones (sentiment, NER) → the small family (MiniMax) |
 | `max_tokens` cap | Hard output ceiling per task type |
 | System prompt length | One ruthlessly short shared prefix, billed on every call |
-| No printed reasoning | Reasoning tokens count — get correctness without printing the working |
-| Answer-only output | No preamble, no restating the question |
+| No printed reasoning | Reasoning tokens count — `reasoning_effort=none`, tunable per category |
+| Answer-only output | No preamble, no restating the question; inline `<think>` blocks stripped |
 | Single call per task | No self-critique loops unless a category needs them |
-| Category routing | Cheap categories (sentiment, NER) get tiny configs; hard ones get headroom |
+| Category routing | Keyword heuristic, not a model call — a classifier would spend tokens to save tokens |
 
-Category routing uses a keyword heuristic rather than a model call — a classifier call would spend tokens to save tokens.
+**Zero-token solvers (`agent/solvers.py`).** The ranking metric is total proxy tokens, and an answer computed in Python never calls the model — so it costs 0 tokens *and* can't be got wrong by a weak model. `solve_math` handles percent-of, discounts, even splits, powers, average speed, and clean arithmetic (via an AST whitelist, never `eval`). `solve_logic` handles transitive comparison and spatial-ordering puzzles (a "greater-than" graph + unique topological sort). Both are **precision-first**: any ambiguity returns `None` and falls back to the model (routed to the strong tier, since the residue is the hard case). A confident-but-wrong 0-token answer would cost the accuracy gate, which is worse than paying tokens.
 
 ## Runtime limits
 
@@ -80,8 +81,8 @@ Three vertical slices, one owner each, meeting only at `answer_task`:
 | Slice | Files | What it does |
 |---|---|---|
 | **Container & harness** | `agent/main.py`, `agent/routing.py`, `Dockerfile` | Reads `/input`, routes each task to a category, writes `/output`, guarantees the contract even on failure. Zero-token keyword routing. |
-| **Model & prompt** | `agent/fireworks_client.py`, `agent/config.py`, `agent/core.py` | The only code that calls Fireworks. Per-category prompts, model choice, and `max_tokens`, all overridable by env var without a rebuild. |
-| **Eval & QA** | `eval/` | Local harness mirror, starter eval set across the 8 categories, a local LLM judge, and the `score` go/no-go command. |
+| **Model & prompt** | `agent/fireworks_client.py`, `agent/config.py`, `agent/core.py`, `agent/solvers.py` | The only code that calls Fireworks. Deterministic 0-token solvers for math/logic; per-category prompts, model tier, `max_tokens`, and `reasoning_effort`, all overridable by env var without a rebuild. |
+| **Eval & QA** | `eval/` | Local harness mirror, a 64-task eval set (8/category) across the 8 categories, a local LLM judge, and the `score` go/no-go command. |
 
 The 8 categories are `factual_knowledge`, `math_reasoning`, `sentiment_classification`, `summarisation`, `named_entity_recognition`, `code_debugging`, `logical_reasoning`, `code_generation`. `agent/routing.py` and `agent/config.py` must agree on this set — a test enforces it.
 
