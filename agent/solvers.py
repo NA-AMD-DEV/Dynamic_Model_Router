@@ -185,6 +185,13 @@ def _solve_power(prompt: str) -> str | None:
 def _solve_discount(prompt: str) -> str | None:
     if not _DISCOUNT_WORDS.search(prompt):
         return None
+    # A second percentage or markup language means multiple pricing steps
+    # (e.g. "marks up 40%... discounted by 25%"): grabbing one percent would
+    # compute a confidently-wrong price. Single-step discounts only.
+    if len(_RE_PERCENT.findall(prompt)) != 1:
+        return None
+    if re.search(r"\bmark(?:s|ed)?[\s-]*up\b|\bmarkup\b", prompt, re.I):
+        return None
     price_m = _RE_MONEY.search(prompt)
     pct_m = _RE_PERCENT.search(prompt)
     if not price_m or not pct_m:
@@ -221,6 +228,10 @@ def _solve_split(prompt: str) -> str | None:
 
 def _solve_average_speed(prompt: str) -> str | None:
     if not re.search(r"\bspeed\b", prompt, re.I):
+        return None
+    # Mixed-unit durations ("2 hours 15 minutes"): the single time regex would
+    # grab only the first unit and compute a wrong speed. Defer.
+    if re.search(r"\bhours?\b", prompt, re.I) and re.search(r"\bmin(?:ute)?s?\b", prompt, re.I):
         return None
     dist_m = re.search(
         r"(\d+(?:\.\d+)?)\s*(kilometres?|kilometers?|km|miles?|mi|metres?|meters?|m)\b",

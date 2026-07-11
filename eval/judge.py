@@ -48,8 +48,13 @@ JUDGE_MAX_TOKENS = _int_env("JUDGE_MAX_TOKENS", 2000)
 _JUDGE_SYSTEM = (
     "You are a strict grader. You are given a QUESTION, the EXPECTED INTENT of a "
     "correct answer, and a CANDIDATE answer. Decide whether the candidate "
-    "satisfies the expected intent. You may reason briefly, but your reply must "
-    "END with a single line containing only '1' (satisfies) or '0' (does not)."
+    "satisfies the expected intent. The expected intent may state HARD "
+    "requirements -- exact sentence or bullet counts, word limits, required "
+    "entity labels, reasons that must acknowledge both positive and negative "
+    "aspects, multiple sub-answers. Enforce every stated requirement literally: "
+    "if the candidate violates any one of them, it does not pass. You may reason "
+    "briefly, but your reply must END with a single line containing only "
+    "'1' (satisfies) or '0' (does not)."
 )
 
 

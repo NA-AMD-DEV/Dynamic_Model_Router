@@ -1,414 +1,409 @@
 {
   "_readme": [
-    "R3's eval set. Each entry: task_id, prompt, category (the category we EXPECT",
-    "routing to pick), and expected_intent (what a correct answer must convey --",
-    "fed to the judge, not to the agent).",
+    "R3's eval set, REBUILT around the official public validation samples",
+    "(retired scoring cases T01-T05) plus same-difficulty variants. The old set",
+    "was far too easy and misled tuning: real tasks demand explanations,",
+    "two-sided sentiment reasons, exact summary formats, and multi-step math.",
     "",
-    "5 tasks per category (40 total), with reworded/harder variants to test",
-    "generalisation, not memorisation, per the guide (P1/P3). R3 owns growing",
-    "this further and adding fresh rewordings the agent has not seen.",
+    "expected_intent strings encode the official rubric's HARD requirements",
+    "(exact counts, word limits, required labels, both-sides reasons) so the",
+    "strict judge enforces what the real gate enforces.",
+    "",
+    "code_debugging / code_generation / logical_reasoning have NO official",
+    "samples (blind spot): variants keep answers complete rather than minimal.",
     "The agent never sees `category` or `expected_intent`; they are ground truth."
   ],
   "tasks": [
     {
-      "task_id": "e_fact_1",
+      "task_id": "f1",
+      "prompt": "Name the three primary colors in the RGB color model and briefly explain why displays use RGB instead of RYB.",
+      "category": "factual_knowledge",
+      "expected_intent": "Correctly identifies red, green, and blue as the three primary colors, AND explains that RGB is used because screens emit light additively (additive color mixing) whereas RYB applies to subtractive mixing of pigments. Both the identification and the explanation are required; either alone does not pass."
+    },
+    {
+      "task_id": "f2",
+      "prompt": "What is the difference between machine learning and deep learning? Briefly explain how each works.",
+      "category": "factual_knowledge",
+      "expected_intent": "Distinguishes ML as algorithms that learn patterns from data, and deep learning as a SUBSET of ML using multi-layer neural networks that automatically extract features from raw data, while traditional ML often needs manual feature engineering. The subset relationship must be clear; omitting it does not pass."
+    },
+    {
+      "task_id": "f3",
+      "prompt": "Explain the difference between RAM and ROM in a computer. What is each type used for?",
+      "category": "factual_knowledge",
+      "expected_intent": "States that RAM is volatile, fast, and used for temporary storage of active programs/data, and ROM is non-volatile and stores permanent firmware/BIOS. Must correctly distinguish volatility and use case for both; mixing them up does not pass."
+    },
+    {
+      "task_id": "f4",
+      "prompt": "Name the three states of matter commonly encountered in everyday life and briefly explain what distinguishes them at the molecular level.",
+      "category": "factual_knowledge",
+      "expected_intent": "Identifies solid, liquid, and gas, AND explains the molecular distinction (particle spacing/arrangement and freedom of movement: fixed in solids, loosely bound in liquids, free in gases). Both parts required."
+    },
+    {
+      "task_id": "f5",
       "prompt": "What is the capital of Australia?",
       "category": "factual_knowledge",
       "expected_intent": "States that the capital of Australia is Canberra."
     },
     {
-      "task_id": "e_fact_2",
-      "prompt": "In which year did the first human land on the Moon?",
+      "task_id": "f6",
+      "prompt": "Explain the difference between HTTP and HTTPS, and why modern websites prefer HTTPS.",
       "category": "factual_knowledge",
-      "expected_intent": "States the year 1969."
+      "expected_intent": "Explains that HTTPS is HTTP with encryption (TLS/SSL), protecting data in transit, and that sites prefer it for security/privacy/trust (and often SEO/browser requirements). Must mention encryption; a generic answer without it does not pass."
     },
     {
-      "task_id": "e_math_1",
+      "task_id": "f7",
+      "prompt": "What is photosynthesis and why is it important for life on Earth?",
+      "category": "factual_knowledge",
+      "expected_intent": "Describes photosynthesis as plants (and algae/some bacteria) converting light energy, water, and CO2 into glucose/energy and oxygen, AND notes its importance (oxygen production and/or the base of food chains). Both the what and the why are required."
+    },
+    {
+      "task_id": "f8",
+      "prompt": "Which planet is known as the Red Planet, and what gives it that color?",
+      "category": "factual_knowledge",
+      "expected_intent": "Identifies Mars AND attributes the red color to iron oxide (rust) on its surface. Both parts required."
+    },
+
+    {
+      "task_id": "m1",
+      "prompt": "A warehouse starts with 2,400 units. In Q1 it sells 37% of stock. In Q2 it restocks 800 units. In Q3 it sells 640 units. How many units remain at the end of Q3?",
+      "category": "math_reasoning",
+      "expected_intent": "Arrives at 1,672 units remaining (2400 - 888 = 1512, + 800 = 2312, - 640 = 1672). The final number must be 1,672; minor working shown or implied is acceptable."
+    },
+    {
+      "task_id": "m2",
+      "prompt": "A recipe requires 3/4 cup of sugar for 12 cookies. How much sugar is needed for 30 cookies? If sugar costs $2.40 per cup, what is the total cost of sugar for 30 cookies?",
+      "category": "math_reasoning",
+      "expected_intent": "Calculates 1.875 cups of sugar (3/4 x 30/12) AND a total cost of $4.50 (1.875 x $2.40). BOTH answers must be present and correct; 1.87 or 1.88 cups is acceptable if the cost still rounds to $4.50. Answering only one of the two questions does not pass."
+    },
+    {
+      "task_id": "m3",
+      "prompt": "A store buys a jacket for $60 and marks the price up by 40%. During a sale, the marked price is discounted by 25%. What is the sale price?",
+      "category": "math_reasoning",
+      "expected_intent": "Arrives at $63 (60 x 1.40 = 84; 84 x 0.75 = 63). The final answer must be $63."
+    },
+    {
+      "task_id": "m4",
+      "prompt": "A tank starts empty. It is filled at 30 liters per minute for 8 minutes, then drained at 20 liters per minute for 5 minutes. How much water is in the tank now?",
+      "category": "math_reasoning",
+      "expected_intent": "Arrives at 140 liters (240 in, 100 out). The final answer must be 140 liters."
+    },
+    {
+      "task_id": "m5",
       "prompt": "What is 15% of 240?",
       "category": "math_reasoning",
       "expected_intent": "Gives the answer 36."
     },
     {
-      "task_id": "e_math_2",
-      "prompt": "A train travels 60 km in 45 minutes. What is its average speed in km/h?",
-      "category": "math_reasoning",
-      "expected_intent": "Gives the answer 80 km/h."
-    },
-    {
-      "task_id": "e_sent_1",
-      "prompt": "What is the sentiment of this review: 'Absolutely loved it, best purchase this year.'",
-      "category": "sentiment_classification",
-      "expected_intent": "Classifies the sentiment as positive."
-    },
-    {
-      "task_id": "e_sent_2",
-      "prompt": "Is this feedback positive or negative: 'The product broke after two days and support ignored me.'",
-      "category": "sentiment_classification",
-      "expected_intent": "Classifies the sentiment as negative."
-    },
-    {
-      "task_id": "e_summ_1",
-      "prompt": "Summarise in one sentence: The committee met for three hours, debated the budget at length, rejected two proposals, and finally approved a reduced spending plan for the next quarter.",
-      "category": "summarisation",
-      "expected_intent": "One-sentence summary capturing that the committee approved a reduced budget after long debate."
-    },
-    {
-      "task_id": "e_summ_2",
-      "prompt": "Give a one-line summary: Rainfall this year was well below average, reservoirs are low, and the city has introduced water-use restrictions.",
-      "category": "summarisation",
-      "expected_intent": "One-line summary capturing drought conditions leading to water restrictions."
-    },
-    {
-      "task_id": "e_ner_1",
-      "prompt": "Extract the named entities from: Ada Lovelace worked with Charles Babbage in London.",
-      "category": "named_entity_recognition",
-      "expected_intent": "Identifies Ada Lovelace and Charles Babbage as people and London as a location."
-    },
-    {
-      "task_id": "e_ner_2",
-      "prompt": "List the named entities: Apple announced the new device at a conference in Cupertino on Tuesday.",
-      "category": "named_entity_recognition",
-      "expected_intent": "Identifies Apple as an organisation and Cupertino as a location (Tuesday as a date is acceptable)."
-    },
-    {
-      "task_id": "e_debug_1",
-      "prompt": "This function should return the average but crashes on an empty list. Fix it: def avg(xs): return sum(xs)/len(xs)",
-      "category": "code_debugging",
-      "expected_intent": "Returns a corrected function that handles the empty-list case (e.g. returns 0 or guards len==0) as a single code block."
-    },
-    {
-      "task_id": "e_debug_2",
-      "prompt": "What's wrong with this and fix it: def is_even(n): return n % 2 == 1",
-      "category": "code_debugging",
-      "expected_intent": "Identifies the inverted logic and returns a corrected function using n % 2 == 0."
-    },
-    {
-      "task_id": "e_logic_1",
-      "prompt": "If Alice is taller than Bob, and Bob is taller than Carol, who is the shortest?",
-      "category": "logical_reasoning",
-      "expected_intent": "Concludes Carol is the shortest."
-    },
-    {
-      "task_id": "e_logic_2",
-      "prompt": "Tom is older than Sara. Sara is older than Rob. Rob is older than Kim. Who is the second oldest?",
-      "category": "logical_reasoning",
-      "expected_intent": "Concludes Sara is the second oldest."
-    },
-    {
-      "task_id": "e_codegen_1",
-      "prompt": "Write a Python function that returns True if a string is a palindrome.",
-      "category": "code_generation",
-      "expected_intent": "Returns a correct Python function checking palindromes, as a single code block."
-    },
-    {
-      "task_id": "e_codegen_2",
-      "prompt": "Write a Python function that returns the factorial of a non-negative integer n.",
-      "category": "code_generation",
-      "expected_intent": "Returns a correct factorial function as a single code block."
-    },
-
-    {
-      "task_id": "e_fact_3",
-      "prompt": "Who wrote the novel 'Pride and Prejudice'?",
-      "category": "factual_knowledge",
-      "expected_intent": "States that Jane Austen wrote it."
-    },
-    {
-      "task_id": "e_fact_4",
-      "prompt": "Name the largest planet in our solar system.",
-      "category": "factual_knowledge",
-      "expected_intent": "States Jupiter."
-    },
-    {
-      "task_id": "e_fact_5",
-      "prompt": "Which element has the chemical symbol Fe?",
-      "category": "factual_knowledge",
-      "expected_intent": "States iron."
-    },
-
-    {
-      "task_id": "e_math_3",
-      "prompt": "If a shirt costs $40 and is discounted by 25%, what is the sale price?",
-      "category": "math_reasoning",
-      "expected_intent": "Gives the answer $30."
-    },
-    {
-      "task_id": "e_math_4",
-      "prompt": "Three friends split a bill of $87 evenly. How much does each pay, rounded to the nearest cent?",
-      "category": "math_reasoning",
-      "expected_intent": "Gives $29.00 (or 29)."
-    },
-    {
-      "task_id": "e_math_5",
-      "prompt": "What is the value of 2 to the power of 10?",
-      "category": "math_reasoning",
-      "expected_intent": "Gives the answer 1024."
-    },
-
-    {
-      "task_id": "e_sent_3",
-      "prompt": "Classify the tone of this tweet: 'Cannot believe how smooth the checkout was, ten out of ten.'",
-      "category": "sentiment_classification",
-      "expected_intent": "Classifies the sentiment as positive."
-    },
-    {
-      "task_id": "e_sent_4",
-      "prompt": "How would you describe the sentiment here: 'It's fine, does the job, nothing special either way.'",
-      "category": "sentiment_classification",
-      "expected_intent": "Classifies the sentiment as neutral (or mixed)."
-    },
-    {
-      "task_id": "e_sent_5",
-      "prompt": "Positive, negative, or neutral: 'Worst customer service I have ever dealt with.'",
-      "category": "sentiment_classification",
-      "expected_intent": "Classifies the sentiment as negative."
-    },
-
-    {
-      "task_id": "e_summ_3",
-      "prompt": "Condense this to a single sentence: The startup began in a garage, struggled for two years, pivoted its product twice, and was eventually acquired by a larger competitor for a record sum.",
-      "category": "summarisation",
-      "expected_intent": "One-sentence summary capturing the startup's struggle and eventual lucrative acquisition."
-    },
-    {
-      "task_id": "e_summ_4",
-      "prompt": "TL;DR: The new policy requires all employees to work from the office three days a week, offers a commuting stipend, and takes effect next month.",
-      "category": "summarisation",
-      "expected_intent": "Brief summary capturing the 3-day in-office policy with a stipend, starting next month."
-    },
-    {
-      "task_id": "e_summ_5",
-      "prompt": "Summarise the key point in under 15 words: After months of testing, researchers concluded the drug reduced symptoms but caused side effects in a third of patients.",
-      "category": "summarisation",
-      "expected_intent": "Short summary noting the drug reduced symptoms but caused side effects in many patients."
-    },
-
-    {
-      "task_id": "e_ner_3",
-      "prompt": "Which people, organisations, and places are mentioned here: Satya Nadella met the mayor of Berlin during Microsoft's European tour.",
-      "category": "named_entity_recognition",
-      "expected_intent": "Identifies Satya Nadella (person), Microsoft (organisation), and Berlin (location)."
-    },
-    {
-      "task_id": "e_ner_4",
-      "prompt": "Pull out the named entities: The Amazon river flows through Brazil and Peru before reaching the Atlantic.",
-      "category": "named_entity_recognition",
-      "expected_intent": "Identifies Amazon (river/location), Brazil and Peru (locations), and the Atlantic (location)."
-    },
-    {
-      "task_id": "e_ner_5",
-      "prompt": "Identify the entities in: Serena Williams won at Wimbledon in July 2016.",
-      "category": "named_entity_recognition",
-      "expected_intent": "Identifies Serena Williams (person), Wimbledon (location/event), and July 2016 (date)."
-    },
-
-    {
-      "task_id": "e_debug_3",
-      "prompt": "This is supposed to count vowels but returns 0 every time. Debug it: def count_vowels(s):\n    n = 0\n    for c in s:\n        if c in 'AEIOU':\n            n += 1\n    return n",
-      "category": "code_debugging",
-      "expected_intent": "Identifies that only uppercase vowels are matched and fixes it to be case-insensitive; returns the corrected function."
-    },
-    {
-      "task_id": "e_debug_4",
-      "prompt": "There's a bug here causing an off-by-one; fix it: def last_item(lst): return lst[len(lst)]",
-      "category": "code_debugging",
-      "expected_intent": "Identifies the index-out-of-range and corrects it to lst[len(lst) - 1] or lst[-1]."
-    },
-    {
-      "task_id": "e_debug_5",
-      "prompt": "Why does this raise a TypeError and how do I fix it: def add_all(items): total = 0; return total + items",
-      "category": "code_debugging",
-      "expected_intent": "Explains that items is a list being added to an int and fixes it to sum the items; returns corrected code."
-    },
-
-    {
-      "task_id": "e_logic_3",
-      "prompt": "Four runners finished a race. Dana beat Evan. Evan beat Faye. Faye beat Gus. Who came last?",
-      "category": "logical_reasoning",
-      "expected_intent": "Concludes Gus came last."
-    },
-    {
-      "task_id": "e_logic_4",
-      "prompt": "All roses are flowers. Some flowers fade quickly. Can we conclude that some roses fade quickly? Answer yes or no.",
-      "category": "logical_reasoning",
-      "expected_intent": "Answers no (the conclusion does not follow)."
-    },
-    {
-      "task_id": "e_logic_5",
-      "prompt": "A is north of B. C is south of B. Which is furthest north?",
-      "category": "logical_reasoning",
-      "expected_intent": "Concludes A is furthest north."
-    },
-
-    {
-      "task_id": "e_codegen_3",
-      "prompt": "Implement a function in Python that returns the nth Fibonacci number (0-indexed).",
-      "category": "code_generation",
-      "expected_intent": "Returns a correct Fibonacci function as a single code block."
-    },
-    {
-      "task_id": "e_codegen_4",
-      "prompt": "Write a Python function that takes a list of integers and returns only the even ones.",
-      "category": "code_generation",
-      "expected_intent": "Returns a correct function filtering even integers, as a single code block."
-    },
-    {
-      "task_id": "e_codegen_5",
-      "prompt": "Create a Python function that counts how many times each word appears in a sentence and returns a dictionary.",
-      "category": "code_generation",
-      "expected_intent": "Returns a correct word-frequency function returning a dict, as a single code block."
-    },
-
-    {
-      "task_id": "e_fact_6",
-      "prompt": "What is the chemical formula for water?",
-      "category": "factual_knowledge",
-      "expected_intent": "States H2O."
-    },
-    {
-      "task_id": "e_fact_7",
-      "prompt": "Who painted the Mona Lisa?",
-      "category": "factual_knowledge",
-      "expected_intent": "States Leonardo da Vinci."
-    },
-    {
-      "task_id": "e_fact_8",
-      "prompt": "What is the smallest prime number?",
-      "category": "factual_knowledge",
-      "expected_intent": "States 2."
-    },
-
-    {
-      "task_id": "e_math_6",
-      "prompt": "What is 30% of 90?",
-      "category": "math_reasoning",
-      "expected_intent": "Gives the answer 27."
-    },
-    {
-      "task_id": "e_math_7",
+      "task_id": "m6",
       "prompt": "Compute 144 / 12.",
       "category": "math_reasoning",
       "expected_intent": "Gives the answer 12."
     },
     {
-      "task_id": "e_math_8",
-      "prompt": "A car travels 120 miles in 3 hours. What is its average speed?",
+      "task_id": "m7",
+      "prompt": "A car travels 180 km in 2 hours 15 minutes. What is its average speed in km/h?",
       "category": "math_reasoning",
-      "expected_intent": "Gives the answer 40 mph."
+      "expected_intent": "Arrives at 80 km/h (180 / 2.25). The answer must be 80 km/h, not 90 (which ignores the 15 minutes)."
+    },
+    {
+      "task_id": "m8",
+      "prompt": "Three friends split a bill of $87 evenly. How much does each pay, rounded to the nearest cent?",
+      "category": "math_reasoning",
+      "expected_intent": "Gives $29.00 (or 29)."
     },
 
     {
-      "task_id": "e_sent_6",
-      "prompt": "Is this positive or negative: 'I regret buying this, total waste of money.'",
+      "task_id": "s1",
+      "prompt": "Classify the sentiment of this customer review as Positive, Negative, or Neutral and give a one-sentence reason: 'The product arrived two days late and the packaging was damaged, but the item worked perfectly and customer support resolved my complaint within an hour.'",
       "category": "sentiment_classification",
-      "expected_intent": "Classifies the sentiment as negative."
+      "expected_intent": "Classifies as Mixed, Neutral, or Positive (any of the three), AND the one-sentence reason acknowledges BOTH the negatives (late delivery, damaged packaging) and the positives (working product, responsive support). A Negative label does not pass. A reason mentioning only one side does not pass, regardless of label."
     },
     {
-      "task_id": "e_sent_7",
-      "prompt": "What's the sentiment: 'The staff were friendly and the food was delicious.'",
+      "task_id": "s2",
+      "prompt": "Classify the sentiment of this tweet as Positive, Negative, or Neutral and give a one-sentence reason: 'Just got my order. Box was dented and the manual was missing, but honestly the device itself is flawless and set up in under 5 minutes.'",
       "category": "sentiment_classification",
-      "expected_intent": "Classifies the sentiment as positive."
+      "expected_intent": "Classifies as Mixed, Neutral, or Positive (any of the three), AND the reason acknowledges BOTH the negatives (dented box, missing manual) and the positives (flawless device, fast setup). A Negative label does not pass; a one-sided reason does not pass."
     },
     {
-      "task_id": "e_sent_8",
-      "prompt": "Positive, negative, or neutral: 'The package arrived on time.'",
+      "task_id": "s3",
+      "prompt": "Classify the sentiment of this review as Positive, Negative, or Neutral and give a one-sentence reason: 'Absolutely loved it, best purchase this year.'",
       "category": "sentiment_classification",
-      "expected_intent": "Classifies the sentiment as neutral."
+      "expected_intent": "Classifies as Positive with a one-sentence reason reflecting the enthusiastic praise. Label without any reason does not pass."
+    },
+    {
+      "task_id": "s4",
+      "prompt": "Classify the sentiment of this review as Positive, Negative, or Neutral and give a one-sentence reason: 'The hotel room was spotless and the staff were friendly, but the constant street noise made sleeping impossible.'",
+      "category": "sentiment_classification",
+      "expected_intent": "Classifies as Mixed or Neutral (Positive or Negative alone is weaker but acceptable ONLY if the reason clearly acknowledges both sides), AND the reason mentions BOTH the positives (clean room, friendly staff) and the negative (noise). A one-sided reason does not pass."
+    },
+    {
+      "task_id": "s5",
+      "prompt": "Classify the sentiment of this comment as Positive, Negative, or Neutral and give a one-sentence reason: 'It's fine. Does what it says.'",
+      "category": "sentiment_classification",
+      "expected_intent": "Classifies as Neutral with a one-sentence reason noting the flat, matter-of-fact tone with neither praise nor complaint."
+    },
+    {
+      "task_id": "s6",
+      "prompt": "Classify the sentiment of this review as Positive, Negative, or Neutral and give a one-sentence reason: 'Shipping was instant and the quality exceeded my expectations!'",
+      "category": "sentiment_classification",
+      "expected_intent": "Classifies as Positive with a one-sentence reason citing fast shipping and/or quality exceeding expectations."
+    },
+    {
+      "task_id": "s7",
+      "prompt": "Classify the sentiment of this app review as Positive, Negative, or Neutral and give a one-sentence reason: 'The app crashes every time I open it and support never replied to my emails.'",
+      "category": "sentiment_classification",
+      "expected_intent": "Classifies as Negative with a one-sentence reason citing the crashes and/or unresponsive support."
+    },
+    {
+      "task_id": "s8",
+      "prompt": "Classify the sentiment of this review as Positive, Negative, or Neutral and give a one-sentence reason: 'Worst checkout process I have ever used, though the delivery was surprisingly quick.'",
+      "category": "sentiment_classification",
+      "expected_intent": "Classifies as Negative or Mixed, AND the reason acknowledges BOTH the very poor checkout experience and the quick delivery. A one-sided reason does not pass."
     },
 
     {
-      "task_id": "e_summ_6",
-      "prompt": "Summarise in one sentence: After a long meeting, the board decided to delay the product launch until the outstanding software bugs were resolved.",
+      "task_id": "t1",
+      "prompt": "Summarize the following passage in exactly two sentences: 'Machine learning is increasingly deployed in healthcare for diagnosis, treatment planning, and patient monitoring. These systems analyse medical images, predict patient deterioration, and spot patterns in electronic health records that might be missed by human clinicians. However, concerns remain about model interpretability, data privacy, liability when errors occur, and the potential for algorithmic bias to worsen existing healthcare disparities. Regulatory frameworks are still catching up with the pace of deployment, creating uncertainty for healthcare providers and technology developers alike.'",
       "category": "summarisation",
-      "expected_intent": "One-sentence summary capturing that the board delayed the launch until bugs were fixed."
+      "expected_intent": "Produces EXACTLY two sentences. Captures both the opportunity (ML assisting clinical tasks like image analysis, prediction, pattern recognition) AND the challenges (interpretability, bias, privacy, liability, regulatory lag). Omitting either side, or producing more or fewer than two sentences, does not pass."
     },
     {
-      "task_id": "e_summ_7",
-      "prompt": "TL;DR: The library will close next week for renovations and reopen the following Monday with extended opening hours.",
+      "task_id": "t2",
+      "prompt": "Summarize the following passage in exactly three bullet points, each no longer than 15 words: 'Remote work has transformed how companies operate globally. Employees gain flexibility and reduced commute times, leading to reported improvements in work-life balance. However, challenges persist around collaboration, company culture, and the blurring of personal and professional boundaries. Organisations are responding by investing in digital collaboration tools and rethinking office space as a hub for social and creative work rather than daily attendance.'",
       "category": "summarisation",
-      "expected_intent": "Brief summary noting the library closes for renovations and reopens Monday with longer hours."
+      "expected_intent": "Produces EXACTLY three bullet points, each 15 words or fewer, covering: (1) benefits such as flexibility and work-life balance, (2) challenges around collaboration, culture, and boundaries, (3) organisational responses via digital tools and reimagined offices. More or fewer than three bullets, or any bullet over 15 words, does not pass."
     },
     {
-      "task_id": "e_summ_8",
-      "prompt": "Give a one-line summary: The hikers set out early, were caught in heavy rain, but still reached the summit by noon and returned safely.",
+      "task_id": "t3",
+      "prompt": "Summarize the following in exactly one sentence: 'Electric vehicle adoption accelerated worldwide as battery costs fell and driving ranges improved. Governments offered purchase incentives and announced future bans on combustion engines. Yet charging infrastructure remains uneven, with rural areas underserved, and electricity grids in some regions are straining to keep up with demand.'",
       "category": "summarisation",
-      "expected_intent": "One-line summary noting the hikers reached the summit despite rain and returned safely."
+      "expected_intent": "Produces EXACTLY one sentence capturing both the acceleration of EV adoption (falling costs, incentives) AND the infrastructure/grid challenges. Two or more sentences, or omitting either side, does not pass."
+    },
+    {
+      "task_id": "t4",
+      "prompt": "Summarize the following passage in exactly two bullet points, each no longer than 12 words: 'The city approved a major renovation of Riverside Park. The plan adds two playgrounds, new walking paths, and improved lighting. During construction, large sections of the park will be closed to the public for up to a year, and several community events will be relocated.'",
+      "category": "summarisation",
+      "expected_intent": "Produces EXACTLY two bullet points, each 12 words or fewer: one on the improvements (playgrounds, paths, lighting), one on the disruption (closures up to a year, relocated events). Wrong bullet count or overlong bullets do not pass."
+    },
+    {
+      "task_id": "t5",
+      "prompt": "Summarize the following in exactly three sentences: 'Open-source software underpins much of modern computing, from operating systems to machine-learning frameworks. Its transparency lets anyone audit code for flaws, and communities often patch vulnerabilities quickly. Critics argue that under-funded maintainers and sparse security reviews leave critical projects exposed. Large companies now fund open-source security initiatives and employ maintainers directly, though coverage remains uneven across the ecosystem.'",
+      "category": "summarisation",
+      "expected_intent": "Produces EXACTLY three sentences covering: open-source's foundational role, the security debate (transparency and quick patches vs under-funded maintainers), and corporate funding responses with uneven coverage. Wrong sentence count does not pass."
+    },
+    {
+      "task_id": "t6",
+      "prompt": "TL;DR in one sentence: 'The new policy requires all employees to work from the office three days a week, offers a commuting stipend, and takes effect next month.'",
+      "category": "summarisation",
+      "expected_intent": "One single sentence capturing the 3-day in-office requirement, the stipend, and the start next month."
+    },
+    {
+      "task_id": "t7",
+      "prompt": "Summarize the following in exactly two sentences: 'Remote learning expanded access to education for students in isolated regions and those balancing work with study. At the same time, educators reported lower engagement in virtual classrooms, and students without reliable internet or quiet study spaces fell behind, deepening existing inequities.'",
+      "category": "summarisation",
+      "expected_intent": "Produces EXACTLY two sentences: one on expanded access, one on the engagement and equity problems. Wrong sentence count or omitting either side does not pass."
+    },
+    {
+      "task_id": "t8",
+      "prompt": "Condense this to a single sentence of at most 20 words: 'Rainfall this year was well below average, reservoirs are low, and the city has introduced water-use restrictions.'",
+      "category": "summarisation",
+      "expected_intent": "One sentence of 20 words or fewer capturing drought conditions leading to water restrictions. Over 20 words or multiple sentences does not pass."
     },
 
     {
-      "task_id": "e_ner_6",
-      "prompt": "Extract the named entities: Elon Musk founded SpaceX in California.",
+      "task_id": "n1",
+      "prompt": "Extract all named entities from the following text and label each as PERSON, ORGANIZATION, LOCATION, or DATE: 'On March 15 2023, Sundar Pichai announced that Google would open a new AI research lab in Zurich, partnering with ETH Zurich to focus on large language model safety.'",
       "category": "named_entity_recognition",
-      "expected_intent": "Identifies Elon Musk (person), SpaceX (organisation), and California (location)."
+      "expected_intent": "Identifies ALL FIVE entities with correct labels: Sundar Pichai (PERSON), March 15 2023 (DATE), Google (ORGANIZATION), Zurich (LOCATION), ETH Zurich (ORGANIZATION). Missing an entity or mislabelling more than one does not pass."
     },
     {
-      "task_id": "e_ner_7",
-      "prompt": "List the entities: The Eiffel Tower is located in Paris, France.",
+      "task_id": "n2",
+      "prompt": "Extract all named entities from the following text and label each as PERSON, ORGANIZATION, LOCATION, or DATE: 'On July 4 2021, Tim Cook visited Apple's new campus in Austin together with Governor Greg Abbott.'",
       "category": "named_entity_recognition",
-      "expected_intent": "Identifies the Eiffel Tower, Paris, and France as locations."
+      "expected_intent": "Identifies all five entities with correct labels: July 4 2021 (DATE), Tim Cook (PERSON), Apple (ORGANIZATION), Austin (LOCATION), Greg Abbott (PERSON). Missing an entity or mislabelling more than one does not pass."
     },
     {
-      "task_id": "e_ner_8",
-      "prompt": "Identify the entities: Google hired Sundar Pichai before moving its headquarters to Mountain View.",
+      "task_id": "n3",
+      "prompt": "Extract all named entities from the following text and label each as PERSON, ORGANIZATION, LOCATION, or DATE: 'Serena Williams won at Wimbledon in July 2016.'",
       "category": "named_entity_recognition",
-      "expected_intent": "Identifies Google (organisation), Sundar Pichai (person), and Mountain View (location)."
+      "expected_intent": "Identifies Serena Williams (PERSON), Wimbledon (LOCATION or ORGANIZATION/event -- either acceptable), and July 2016 (DATE). All three must be present."
+    },
+    {
+      "task_id": "n4",
+      "prompt": "Extract all named entities from the following text and label each as PERSON, ORGANIZATION, LOCATION, or DATE: 'The World Health Organization declared the outbreak over on May 5 2023, praising medical teams based in Geneva.'",
+      "category": "named_entity_recognition",
+      "expected_intent": "Identifies the World Health Organization (ORGANIZATION), May 5 2023 (DATE), and Geneva (LOCATION). All three must be present with correct labels."
+    },
+    {
+      "task_id": "n5",
+      "prompt": "Extract all named entities from the following text and label each as PERSON, ORGANIZATION, LOCATION, or DATE: 'Elon Musk founded SpaceX in California in 2002.'",
+      "category": "named_entity_recognition",
+      "expected_intent": "Identifies Elon Musk (PERSON), SpaceX (ORGANIZATION), California (LOCATION), and 2002 (DATE). All four must be present with correct labels."
+    },
+    {
+      "task_id": "n6",
+      "prompt": "Extract all named entities from the following text and label each as PERSON, ORGANIZATION, LOCATION, or DATE: 'Barcelona defeated Real Madrid at Camp Nou on April 21.'",
+      "category": "named_entity_recognition",
+      "expected_intent": "Identifies Barcelona (ORGANIZATION -- the club; LOCATION also acceptable), Real Madrid (ORGANIZATION), Camp Nou (LOCATION), April 21 (DATE). All four must be present; mislabelling more than one does not pass."
+    },
+    {
+      "task_id": "n7",
+      "prompt": "Extract all named entities from the following text and label each as PERSON, ORGANIZATION, LOCATION, or DATE: 'Marie Curie studied at the Sorbonne in Paris before joining the French Academy of Sciences.'",
+      "category": "named_entity_recognition",
+      "expected_intent": "Identifies Marie Curie (PERSON), the Sorbonne (ORGANIZATION), Paris (LOCATION), and the French Academy of Sciences (ORGANIZATION). All four must be present with correct labels."
+    },
+    {
+      "task_id": "n8",
+      "prompt": "Extract all named entities from the following text and label each as PERSON, ORGANIZATION, LOCATION, or DATE: 'Amazon opened its second headquarters in Arlington in June 2023, CEO Andy Jassy announced.'",
+      "category": "named_entity_recognition",
+      "expected_intent": "Identifies Amazon (ORGANIZATION), Arlington (LOCATION), June 2023 (DATE), and Andy Jassy (PERSON). All four must be present with correct labels."
     },
 
     {
-      "task_id": "e_debug_6",
-      "prompt": "This should return the largest value but returns the smallest. Fix it: def find_max(xs): return min(xs)",
+      "task_id": "d1",
+      "prompt": "Why does this raise a TypeError and how do I fix it: def add_all(items): total = 0; return total + items",
       "category": "code_debugging",
-      "expected_intent": "Returns a corrected function that uses max(xs) as a single code block."
+      "expected_intent": "Explains that an int is being added to a list (items is a list), AND provides corrected code that sums the items (e.g. sum(items) or a loop). Both the why and the fix are required since the prompt asks why."
     },
     {
-      "task_id": "e_debug_7",
-      "prompt": "Fix the bug, this should divide but doesn't: def divide(a, b): return a % b",
+      "task_id": "d2",
+      "prompt": "This function should return the average but crashes on an empty list. Fix it: def avg(xs): return sum(xs)/len(xs)",
       "category": "code_debugging",
-      "expected_intent": "Identifies that % is modulo and corrects it to return a / b."
+      "expected_intent": "Returns a corrected function that handles the empty-list case (guard on len(xs)==0 / early return) in a code block."
     },
     {
-      "task_id": "e_debug_8",
-      "prompt": "Why does this loop forever and how do I fix it: def countdown(n):\n    while n > 0:\n        print(n)",
+      "task_id": "d3",
+      "prompt": "There's a bug here causing an off-by-one; fix it: def last_item(lst): return lst[len(lst)]",
       "category": "code_debugging",
-      "expected_intent": "Explains the counter is never decremented and adds n -= 1 inside the loop; returns corrected code."
+      "expected_intent": "Corrects the index-out-of-range to lst[len(lst) - 1] or lst[-1], returned as code."
+    },
+    {
+      "task_id": "d4",
+      "prompt": "This is supposed to count vowels but returns 0 for lowercase text. Debug it: def count_vowels(s):\n    n = 0\n    for c in s:\n        if c in 'AEIOU':\n            n += 1\n    return n",
+      "category": "code_debugging",
+      "expected_intent": "Identifies that only uppercase vowels are matched and fixes it to be case-insensitive (e.g. c.lower() in 'aeiou'); returns the corrected function."
+    },
+    {
+      "task_id": "d5",
+      "prompt": "This loop never terminates. Explain why and fix it: def countdown(n):\n    while n > 0:\n        print(n)",
+      "category": "code_debugging",
+      "expected_intent": "Explains the counter is never decremented AND returns corrected code adding n -= 1 inside the loop. Both required since the prompt asks to explain."
+    },
+    {
+      "task_id": "d6",
+      "prompt": "What's wrong with this and fix it: def is_even(n): return n % 2 == 1",
+      "category": "code_debugging",
+      "expected_intent": "Identifies the inverted logic and returns a corrected function using n % 2 == 0."
+    },
+    {
+      "task_id": "d7",
+      "prompt": "This filter is supposed to keep only adults but returns everyone. What's wrong and how do I fix it: def filter_adults(people): return [p for p in people if p['age'] > 18 or True]",
+      "category": "code_debugging",
+      "expected_intent": "Identifies that 'or True' makes the condition always true, AND returns corrected code dropping it (p['age'] > 18, or >= 18). Both the diagnosis and the fix are required."
+    },
+    {
+      "task_id": "d8",
+      "prompt": "Why does calling this twice give a surprising result, and how do I fix it: def append_item(item, items=[]):\n    items.append(item)\n    return items",
+      "category": "code_debugging",
+      "expected_intent": "Explains the mutable default argument is shared across calls, AND fixes it (items=None with 'if items is None: items = []'). Both the why and the fix are required."
     },
 
     {
-      "task_id": "e_logic_6",
-      "prompt": "Ben is heavier than Cal. Cal is heavier than Dan. Who is the lightest?",
+      "task_id": "l1",
+      "prompt": "If Alice is taller than Bob, and Bob is taller than Carol, who is the shortest?",
       "category": "logical_reasoning",
-      "expected_intent": "Concludes Dan is the lightest."
+      "expected_intent": "Concludes Carol is the shortest."
     },
     {
-      "task_id": "e_logic_7",
+      "task_id": "l2",
+      "prompt": "Tom is older than Sara. Sara is older than Rob. Rob is older than Kim. Who is the second oldest?",
+      "category": "logical_reasoning",
+      "expected_intent": "Concludes Sara is the second oldest."
+    },
+    {
+      "task_id": "l3",
+      "prompt": "All roses are flowers. Some flowers fade quickly. Can we conclude that some roses fade quickly? Answer yes or no, and briefly say why.",
+      "category": "logical_reasoning",
+      "expected_intent": "Answers NO, with a brief reason that the quickly-fading flowers might not include any roses (the conclusion does not follow). Both the no and a coherent reason are required since the prompt asks why."
+    },
+    {
+      "task_id": "l4",
+      "prompt": "All squares are rectangles. All rectangles are shapes. Can we conclude that all squares are shapes? Answer yes or no.",
+      "category": "logical_reasoning",
+      "expected_intent": "Answers yes (the conclusion follows by transitivity)."
+    },
+    {
+      "task_id": "l5",
       "prompt": "In a race, Priya finished ahead of Quinn, and Quinn finished ahead of Raj. Who came first?",
       "category": "logical_reasoning",
       "expected_intent": "Concludes Priya came first."
     },
     {
-      "task_id": "e_logic_8",
-      "prompt": "All squares are rectangles. All rectangles are shapes. Can we conclude that all squares are shapes? Answer yes or no.",
+      "task_id": "l6",
+      "prompt": "A is north of B. C is south of B. Which is furthest north?",
       "category": "logical_reasoning",
-      "expected_intent": "Answers yes (the conclusion follows)."
+      "expected_intent": "Concludes A is furthest north."
+    },
+    {
+      "task_id": "l7",
+      "prompt": "Four runners finished a race. Dana beat Evan. Evan beat Faye. Faye beat Gus. Who came last?",
+      "category": "logical_reasoning",
+      "expected_intent": "Concludes Gus came last."
+    },
+    {
+      "task_id": "l8",
+      "prompt": "Either the meeting is on Monday or it is on Thursday. It is not on Monday. When is the meeting?",
+      "category": "logical_reasoning",
+      "expected_intent": "Concludes the meeting is on Thursday."
     },
 
     {
-      "task_id": "e_codegen_6",
-      "prompt": "Write a Python function that returns the sum of all numbers in a list.",
+      "task_id": "g1",
+      "prompt": "Write a Python function that returns True if a string is a palindrome.",
       "category": "code_generation",
-      "expected_intent": "Returns a correct function summing a list of numbers, as a single code block."
+      "expected_intent": "Returns a correct Python palindrome-checking function in a code block."
     },
     {
-      "task_id": "e_codegen_7",
-      "prompt": "Implement a Python function that checks whether a number is prime.",
+      "task_id": "g2",
+      "prompt": "Write a Python function that returns the factorial of a non-negative integer n.",
       "category": "code_generation",
-      "expected_intent": "Returns a correct primality-check function as a single code block."
+      "expected_intent": "Returns a correct factorial function in a code block."
     },
     {
-      "task_id": "e_codegen_8",
-      "prompt": "Write a Python function that converts a Celsius temperature to Fahrenheit.",
+      "task_id": "g3",
+      "prompt": "Implement a function in Python that returns the nth Fibonacci number (0-indexed).",
       "category": "code_generation",
-      "expected_intent": "Returns a correct Celsius-to-Fahrenheit conversion function as a single code block."
+      "expected_intent": "Returns a correct Fibonacci function (0-indexed: fib(0)=0, fib(1)=1) in a code block."
+    },
+    {
+      "task_id": "g4",
+      "prompt": "Write a Python function that takes a list of integers and returns only the even ones.",
+      "category": "code_generation",
+      "expected_intent": "Returns a correct function filtering even integers in a code block."
+    },
+    {
+      "task_id": "g5",
+      "prompt": "Create a Python function that counts how many times each word appears in a sentence and returns a dictionary.",
+      "category": "code_generation",
+      "expected_intent": "Returns a correct word-frequency function returning a dict, in a code block."
+    },
+    {
+      "task_id": "g6",
+      "prompt": "Write a Python function that merges two already-sorted lists into one sorted list without using sort() or sorted().",
+      "category": "code_generation",
+      "expected_intent": "Returns a correct merge function using a two-pointer walk (no sort()/sorted()), handling leftover elements from either list, in a code block."
+    },
+    {
+      "task_id": "g7",
+      "prompt": "Write a Python function that returns the second largest number in a list, and briefly explain how it handles duplicates.",
+      "category": "code_generation",
+      "expected_intent": "Returns a correct second-largest function AND a brief note on duplicate handling (e.g. whether [5,5,3] gives 5 or 3, depending on distinct-values choice -- either behaviour is fine if stated). Both the code and the explanation are required."
+    },
+    {
+      "task_id": "g8",
+      "prompt": "Write a Python function that validates whether a string is a valid IPv4 address.",
+      "category": "code_generation",
+      "expected_intent": "Returns a correct IPv4 validator (four dot-separated parts, each an integer 0-255, no empty/non-numeric parts) in a code block."
     }
   ]
 }

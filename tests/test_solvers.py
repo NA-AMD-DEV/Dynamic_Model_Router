@@ -79,6 +79,11 @@ def test_solve_math_defers(prompt):
     "The stock index rose 15% of 240 points in the morning and then fell back.",
     # two questions = two computations
     "What is 20% of 50? And what is 30% of 90?",
+    # mixed-unit duration: grabbing just "2 hours" would answer 90, not 80
+    "A car travels 180 km in 2 hours 15 minutes. What is its average speed?",
+    # markup THEN discount: grabbing one percent answered $36 (correct: $63)
+    "A store buys a jacket for $60 and marks the price up by 40%. During a "
+    "sale, the marked price is discounted by 25%. What is the sale price?",
 ])
 def test_solve_math_defers_on_official_multistep(prompt):
     assert solve_math(prompt) is None
