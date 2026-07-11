@@ -12,6 +12,13 @@ from agent.config import allowed_models
 
 _client: OpenAI | None = None
 
+# The harness requires each request to complete under 30s. The OpenAI SDK's
+# default timeout is 600s, which would let one hung call blow both that limit
+# and eat into the 10-minute total run budget (main.py only checks its budget
+# between tasks, not during one). A few seconds of margin under the hard limit
+# for network overhead on top of the call itself.
+REQUEST_TIMEOUT_S = float(os.environ.get("REQUEST_TIMEOUT_S", "25"))
+
 
 def _get_client() -> OpenAI:
     """Constructed on first use, not at import — so importing this module in a
@@ -23,7 +30,7 @@ def _get_client() -> OpenAI:
         base_url = os.environ.get("FIREWORKS_BASE_URL")
         if not api_key or not base_url:
             raise RuntimeError("FIREWORKS_API_KEY and FIREWORKS_BASE_URL must be set")
-        _client = OpenAI(api_key=api_key, base_url=base_url)
+        _client = OpenAI(api_key=api_key, base_url=base_url, timeout=REQUEST_TIMEOUT_S)
     return _client
 
 

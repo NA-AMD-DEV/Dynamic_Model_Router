@@ -69,7 +69,7 @@ Category routing uses a keyword heuristic rather than a model call — a classif
 The judging VM enforces these; violating any one scores zero.
 
 - Image built for `linux/amd64`, public, pulls with no login, ≤ 10 GB compressed
-- Ready in under 60 s; each request under 30 s; whole run under 10 min
+- Ready in under 60 s; each request under 30 s (enforced: `agent/fireworks_client.py` sets a 25 s client timeout, `REQUEST_TIMEOUT_S` to override); whole run under 10 min
 - Exit 0 on success; valid `results.json` even when tasks fail
 - All responses in English
 
