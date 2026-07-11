@@ -38,7 +38,7 @@ CATEGORY_CONFIGS = {
             "Nothing else."
         ),
         "model": CHEAP_MODEL,
-        "max_tokens": 60,
+        "max_tokens": 100,
     },
     "summarisation": {
         "system_prompt": (

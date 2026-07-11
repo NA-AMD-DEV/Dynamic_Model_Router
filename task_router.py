@@ -32,8 +32,8 @@ def answer_task(task_id: str, prompt: str, category: str = None) -> dict:
 if __name__ == "__main__":
     # Quick manual test — run this file directly to sanity check the wiring
     test = answer_task(
-        task_id="t1",
-        prompt="What is 15% of 240?",
-        category="math_reasoning",
-    )
+    task_id="t1",
+    prompt="I love this product, it works great!",
+    category="sentiment_classification",
+)
     print(test)
