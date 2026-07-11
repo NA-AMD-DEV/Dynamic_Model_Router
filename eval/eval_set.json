@@ -257,6 +257,158 @@
       "prompt": "Create a Python function that counts how many times each word appears in a sentence and returns a dictionary.",
       "category": "code_generation",
       "expected_intent": "Returns a correct word-frequency function returning a dict, as a single code block."
+    },
+
+    {
+      "task_id": "e_fact_6",
+      "prompt": "What is the chemical formula for water?",
+      "category": "factual_knowledge",
+      "expected_intent": "States H2O."
+    },
+    {
+      "task_id": "e_fact_7",
+      "prompt": "Who painted the Mona Lisa?",
+      "category": "factual_knowledge",
+      "expected_intent": "States Leonardo da Vinci."
+    },
+    {
+      "task_id": "e_fact_8",
+      "prompt": "What is the smallest prime number?",
+      "category": "factual_knowledge",
+      "expected_intent": "States 2."
+    },
+
+    {
+      "task_id": "e_math_6",
+      "prompt": "What is 30% of 90?",
+      "category": "math_reasoning",
+      "expected_intent": "Gives the answer 27."
+    },
+    {
+      "task_id": "e_math_7",
+      "prompt": "Compute 144 / 12.",
+      "category": "math_reasoning",
+      "expected_intent": "Gives the answer 12."
+    },
+    {
+      "task_id": "e_math_8",
+      "prompt": "A car travels 120 miles in 3 hours. What is its average speed?",
+      "category": "math_reasoning",
+      "expected_intent": "Gives the answer 40 mph."
+    },
+
+    {
+      "task_id": "e_sent_6",
+      "prompt": "Is this positive or negative: 'I regret buying this, total waste of money.'",
+      "category": "sentiment_classification",
+      "expected_intent": "Classifies the sentiment as negative."
+    },
+    {
+      "task_id": "e_sent_7",
+      "prompt": "What's the sentiment: 'The staff were friendly and the food was delicious.'",
+      "category": "sentiment_classification",
+      "expected_intent": "Classifies the sentiment as positive."
+    },
+    {
+      "task_id": "e_sent_8",
+      "prompt": "Positive, negative, or neutral: 'The package arrived on time.'",
+      "category": "sentiment_classification",
+      "expected_intent": "Classifies the sentiment as neutral."
+    },
+
+    {
+      "task_id": "e_summ_6",
+      "prompt": "Summarise in one sentence: After a long meeting, the board decided to delay the product launch until the outstanding software bugs were resolved.",
+      "category": "summarisation",
+      "expected_intent": "One-sentence summary capturing that the board delayed the launch until bugs were fixed."
+    },
+    {
+      "task_id": "e_summ_7",
+      "prompt": "TL;DR: The library will close next week for renovations and reopen the following Monday with extended opening hours.",
+      "category": "summarisation",
+      "expected_intent": "Brief summary noting the library closes for renovations and reopens Monday with longer hours."
+    },
+    {
+      "task_id": "e_summ_8",
+      "prompt": "Give a one-line summary: The hikers set out early, were caught in heavy rain, but still reached the summit by noon and returned safely.",
+      "category": "summarisation",
+      "expected_intent": "One-line summary noting the hikers reached the summit despite rain and returned safely."
+    },
+
+    {
+      "task_id": "e_ner_6",
+      "prompt": "Extract the named entities: Elon Musk founded SpaceX in California.",
+      "category": "named_entity_recognition",
+      "expected_intent": "Identifies Elon Musk (person), SpaceX (organisation), and California (location)."
+    },
+    {
+      "task_id": "e_ner_7",
+      "prompt": "List the entities: The Eiffel Tower is located in Paris, France.",
+      "category": "named_entity_recognition",
+      "expected_intent": "Identifies the Eiffel Tower, Paris, and France as locations."
+    },
+    {
+      "task_id": "e_ner_8",
+      "prompt": "Identify the entities: Google hired Sundar Pichai before moving its headquarters to Mountain View.",
+      "category": "named_entity_recognition",
+      "expected_intent": "Identifies Google (organisation), Sundar Pichai (person), and Mountain View (location)."
+    },
+
+    {
+      "task_id": "e_debug_6",
+      "prompt": "This should return the largest value but returns the smallest. Fix it: def find_max(xs): return min(xs)",
+      "category": "code_debugging",
+      "expected_intent": "Returns a corrected function that uses max(xs) as a single code block."
+    },
+    {
+      "task_id": "e_debug_7",
+      "prompt": "Fix the bug, this should divide but doesn't: def divide(a, b): return a % b",
+      "category": "code_debugging",
+      "expected_intent": "Identifies that % is modulo and corrects it to return a / b."
+    },
+    {
+      "task_id": "e_debug_8",
+      "prompt": "Why does this loop forever and how do I fix it: def countdown(n):\n    while n > 0:\n        print(n)",
+      "category": "code_debugging",
+      "expected_intent": "Explains the counter is never decremented and adds n -= 1 inside the loop; returns corrected code."
+    },
+
+    {
+      "task_id": "e_logic_6",
+      "prompt": "Ben is heavier than Cal. Cal is heavier than Dan. Who is the lightest?",
+      "category": "logical_reasoning",
+      "expected_intent": "Concludes Dan is the lightest."
+    },
+    {
+      "task_id": "e_logic_7",
+      "prompt": "In a race, Priya finished ahead of Quinn, and Quinn finished ahead of Raj. Who came first?",
+      "category": "logical_reasoning",
+      "expected_intent": "Concludes Priya came first."
+    },
+    {
+      "task_id": "e_logic_8",
+      "prompt": "All squares are rectangles. All rectangles are shapes. Can we conclude that all squares are shapes? Answer yes or no.",
+      "category": "logical_reasoning",
+      "expected_intent": "Answers yes (the conclusion follows)."
+    },
+
+    {
+      "task_id": "e_codegen_6",
+      "prompt": "Write a Python function that returns the sum of all numbers in a list.",
+      "category": "code_generation",
+      "expected_intent": "Returns a correct function summing a list of numbers, as a single code block."
+    },
+    {
+      "task_id": "e_codegen_7",
+      "prompt": "Implement a Python function that checks whether a number is prime.",
+      "category": "code_generation",
+      "expected_intent": "Returns a correct primality-check function as a single code block."
+    },
+    {
+      "task_id": "e_codegen_8",
+      "prompt": "Write a Python function that converts a Celsius temperature to Fahrenheit.",
+      "category": "code_generation",
+      "expected_intent": "Returns a correct Celsius-to-Fahrenheit conversion function as a single code block."
     }
   ]
 }
