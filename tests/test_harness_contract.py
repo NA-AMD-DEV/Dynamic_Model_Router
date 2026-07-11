@@ -152,27 +152,41 @@ def test_explicit_model_override_beats_index(monkeypatch):
     assert config_for("code_generation").model == "pinned"
 
 
-def test_tier_matches_family_by_name(monkeypatch):
-    # Real injection: strong categories land on Kimi, cheap on MiniMax, by
-    # substring -- with no assumption about list order.
-    monkeypatch.setenv("ALLOWED_MODELS", "accounts/x/minimax-m1, accounts/x/kimi-k2-instruct")
-    assert config_for("code_generation").model.endswith("kimi-k2-instruct")   # strong
-    assert config_for("sentiment_classification").model.endswith("minimax-m1")  # cheap
+def test_tier_ranks_by_parsed_parameter_count(monkeypatch):
+    # No vendor name is hardcoded: capability comes from the 'NNb' token in
+    # each id, so this adapts to whatever family is actually injected.
+    monkeypatch.setenv(
+        "ALLOWED_MODELS",
+        "accounts/x/qwen3-8b, accounts/x/qwen3-30b-a3b, accounts/x/llama-3.3-70b-instruct",
+    )
+    assert config_for("sentiment_classification").model.endswith("qwen3-8b")            # small
+    assert config_for("code_debugging").model.endswith("qwen3-30b-a3b")                 # medium
+    assert config_for("math_reasoning").model.endswith("llama-3.3-70b-instruct")        # large
 
 
-def test_tier_falls_back_to_model_index_when_no_family_matches(monkeypatch):
-    # Generic/unknown ids: tier can't match, so it lands on model_index (0),
-    # never guessing by order.
+def test_tier_falls_back_to_given_order_when_ids_carry_no_size(monkeypatch):
+    # Flagship/commercial ids often have no parseable size (Kimi, MiniMax,
+    # DeepSeek, GLM...). With no numeric signal anywhere, ranking degrades to
+    # the order ALLOWED_MODELS was given in -- deterministic, never crashes.
     monkeypatch.setenv("ALLOWED_MODELS", "tiny, mid, big")
-    assert config_for("code_generation").model == "tiny"      # strong tier, index 0
-    assert config_for("sentiment_classification").model == "tiny"  # cheap tier, index 0
+    assert config_for("sentiment_classification").model == "tiny"   # small -> first
+    assert config_for("math_reasoning").model == "big"              # large -> last
+
+
+def test_tier_places_unsized_ids_after_sized_ones(monkeypatch):
+    # A mixed list: sized ids rank among themselves; unsized ones (no 'NNb'
+    # token) are treated as at-least-as-capable as the largest sized one,
+    # rather than risking them being mistaken for the smallest.
+    monkeypatch.setenv("ALLOWED_MODELS", "qwen3-8b, some-flagship-id")
+    assert config_for("sentiment_classification").model == "qwen3-8b"        # small
+    assert config_for("math_reasoning").model == "some-flagship-id"          # large
 
 
 def test_model_index_env_beats_tier(monkeypatch):
-    monkeypatch.setenv("ALLOWED_MODELS", "minimax-a, kimi-b")
+    monkeypatch.setenv("ALLOWED_MODELS", "model-a, model-b")
     monkeypatch.setenv("ROUTER_CODE_GENERATION_MODEL_INDEX", "0")
-    # Explicit index wins over the strong tier's name match.
-    assert config_for("code_generation").model == "minimax-a"
+    # Explicit index wins over the tier's capability ranking.
+    assert config_for("code_generation").model == "model-a"
 
 
 def test_model_index_clamps_rather_than_crashing(monkeypatch):
@@ -193,6 +207,38 @@ def test_max_tokens_override_applies(monkeypatch):
 
 def test_unknown_category_falls_back_to_default():
     assert config_for("nonsense") == config_for("factual_knowledge")
+
+
+# --- pick_capability: the adaptive (no hardcoded names) ranking directly ---
+
+def test_pick_capability_moe_id_uses_total_not_active_count(monkeypatch):
+    from agent.config import pick_capability
+
+    monkeypatch.setenv("ALLOWED_MODELS", "small-3b, moe-30b-a3b, big-70b")
+    # 'a3b' (active count) must not be mistaken for the whole model's size --
+    # 30b-a3b ranks by its 30, landing in the middle, not next to small-3b.
+    assert pick_capability("small") == "small-3b"
+    assert pick_capability("medium") == "moe-30b-a3b"
+    assert pick_capability("large") == "big-70b"
+
+
+def test_pick_capability_collapses_gracefully_as_list_shrinks(monkeypatch):
+    from agent.config import pick_capability
+
+    monkeypatch.setenv("ALLOWED_MODELS", "only-one-model")
+    assert pick_capability("small") == pick_capability("medium") == pick_capability("large")
+
+    monkeypatch.setenv("ALLOWED_MODELS", "")
+    assert pick_capability("small") == ""
+
+
+def test_pick_capability_two_models_medium_matches_large(monkeypatch):
+    from agent.config import pick_capability
+
+    monkeypatch.setenv("ALLOWED_MODELS", "model-8b, model-70b")
+    assert pick_capability("small") == "model-8b"
+    assert pick_capability("medium") == "model-70b"
+    assert pick_capability("large") == "model-70b"
 
 
 def test_every_routed_category_has_a_config():
