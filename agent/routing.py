@@ -24,8 +24,10 @@ PRIORITY: list[tuple[str, list[str]]] = [
     # leak into math. A clear sentiment ask wins outright.
     ("sentiment_classification", [
         r"\bsentiment\b", r"\bpositive or negative\b", r"\bnegative or positive\b",
+        r"\bpositive,?\s*negative,?\s*(or\s*)?neutral\b",  # list form
         r"\b(positive|negative|neutral)\b.*\b(tone|review|opinion|feedback|sentiment)\b",
-        r"\b(review|feedback|opinion)\b.*\b(positive|negative|neutral)\b",
+        r"\b(review|feedback|opinion|tone|tweet)\b.*\b(positive|negative|neutral)\b",
+        r"\b(classify|what'?s|describe)\b.*\btone\b",
         r"\bhow does .* feel\b",
     ]),
     # Debugging before generation: repair language ("fix", "crashes", "bug")
@@ -42,26 +44,36 @@ PRIORITY: list[tuple[str, list[str]]] = [
         r"\bwrite (a |the )?(python|java|c\+\+|javascript|sql|rust|go)\b",
         r"\bimplement\b.*\b(function|method|algorithm)\b",
     ]),
+    # Logic before math, but its patterns are phrasing-specific so numeric word
+    # problems still fall through to math_reasoning below.
     ("logical_reasoning", [
         r"\bpuzzle\b", r"\bconstraint\b", r"\beither .* or\b",
         r"\bif .* then\b", r"\btrue or false\b",
-        r"\bwho (is|owns|lives|likes)\b",  # classic logic-grid phrasing
-        r"\bwho is the (tallest|shortest|oldest|youngest|second|first|last)\b",
+        r"\bwho (is|owns|lives|likes|came|finished)\b",  # logic-grid phrasing
+        r"\bwho (is|came|finished|ranks?|placed)\b.*\b(tallest|shortest|oldest|youngest|furthest|second|first|last)\b",
+        r"\bwhich\b.*\b(is|comes?|ranks?)\b.*\b(tallest|shortest|oldest|youngest|furthest north|furthest)\b",
+        r"\b\w+ beat \w+\b",  # transitive ordering: "Dana beat Evan"
+        r"\bcan we conclude\b", r"\bdoes (it|this) follow\b",
+        r"\ball \w+ are\b.*\bsome\b",  # syllogism
+        r"\bnorth of\b|\bsouth of\b|\beast of\b|\bwest of\b",  # spatial ordering
     ]),
     ("math_reasoning", [
         r"\bcalculate\b", r"\bcompute\b", r"\bsolve\b",
         r"\bhow (much|many)\b",
         r"\b(remainder|quotient|derivative|integral)\b",  # dropped bare 'product'/'sum'
-        r"\bequation\b", r"\bpercent(age)?\b", r"%\s*of\b",
+        r"\bequation\b", r"\bpercent(age)?\b",
+        r"%",  # any percent sign signals arithmetic (discount, of, off)
         r"\bwhat is\b.*\d+.*\b(of|times|plus|minus|divided|multiplied)\b",
+        r"\b(discount(ed)?|sale price|split|evenly|to the power of)\b",
         r"\baverage (speed|of)\b",
+        r"\$\s*\d+",  # money amounts: "$40", "$87"
         r"\d+\s*[+\-*/^]\s*\d+",
     ]),
     ("named_entity_recognition", [
         r"\bnamed entit", r"\bentit(y|ies)\b",
-        r"\bextract .*\b(name|person|place|organi[sz]ation|location|date)s?\b",
-        r"\blist the (named )?entit", r"\blist the named\b",
-        r"\b(person|organi[sz]ation|location)s? mentioned\b",
+        r"\b(extract|identify|pull out|list)\b.*\b(name|person|people|place|organi[sz]ation|location|date)s?\b",
+        r"\b(which|what)\b.*\b(people|person|organi[sz]ations?|places?|locations?)\b.*\bmentioned\b",
+        r"\b(people|person|organi[sz]ation|location)s? mentioned\b",
     ]),
     ("summarisation", [
         r"\bsummari[sz]e\b", r"\bsummary\b", r"\btl;?dr\b",

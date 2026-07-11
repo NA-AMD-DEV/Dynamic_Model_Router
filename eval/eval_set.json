@@ -4,9 +4,9 @@
     "routing to pick), and expected_intent (what a correct answer must convey --",
     "fed to the judge, not to the agent).",
     "",
-    "This is a STARTER set: 2-3 tasks per category. The guide (P1/P3) calls for",
-    "3-5+ per category with harder reworded variants. R3 owns expanding this and",
-    "guarding against memorisation -- add fresh rewordings the agent has not seen.",
+    "5 tasks per category (40 total), with reworded/harder variants to test",
+    "generalisation, not memorisation, per the guide (P1/P3). R3 owns growing",
+    "this further and adding fresh rewordings the agent has not seen.",
     "The agent never sees `category` or `expected_intent`; they are ground truth."
   ],
   "tasks": [
@@ -105,6 +105,158 @@
       "prompt": "Write a Python function that returns the factorial of a non-negative integer n.",
       "category": "code_generation",
       "expected_intent": "Returns a correct factorial function as a single code block."
+    },
+
+    {
+      "task_id": "e_fact_3",
+      "prompt": "Who wrote the novel 'Pride and Prejudice'?",
+      "category": "factual_knowledge",
+      "expected_intent": "States that Jane Austen wrote it."
+    },
+    {
+      "task_id": "e_fact_4",
+      "prompt": "Name the largest planet in our solar system.",
+      "category": "factual_knowledge",
+      "expected_intent": "States Jupiter."
+    },
+    {
+      "task_id": "e_fact_5",
+      "prompt": "Which element has the chemical symbol Fe?",
+      "category": "factual_knowledge",
+      "expected_intent": "States iron."
+    },
+
+    {
+      "task_id": "e_math_3",
+      "prompt": "If a shirt costs $40 and is discounted by 25%, what is the sale price?",
+      "category": "math_reasoning",
+      "expected_intent": "Gives the answer $30."
+    },
+    {
+      "task_id": "e_math_4",
+      "prompt": "Three friends split a bill of $87 evenly. How much does each pay, rounded to the nearest cent?",
+      "category": "math_reasoning",
+      "expected_intent": "Gives $29.00 (or 29)."
+    },
+    {
+      "task_id": "e_math_5",
+      "prompt": "What is the value of 2 to the power of 10?",
+      "category": "math_reasoning",
+      "expected_intent": "Gives the answer 1024."
+    },
+
+    {
+      "task_id": "e_sent_3",
+      "prompt": "Classify the tone of this tweet: 'Cannot believe how smooth the checkout was, ten out of ten.'",
+      "category": "sentiment_classification",
+      "expected_intent": "Classifies the sentiment as positive."
+    },
+    {
+      "task_id": "e_sent_4",
+      "prompt": "How would you describe the sentiment here: 'It's fine, does the job, nothing special either way.'",
+      "category": "sentiment_classification",
+      "expected_intent": "Classifies the sentiment as neutral (or mixed)."
+    },
+    {
+      "task_id": "e_sent_5",
+      "prompt": "Positive, negative, or neutral: 'Worst customer service I have ever dealt with.'",
+      "category": "sentiment_classification",
+      "expected_intent": "Classifies the sentiment as negative."
+    },
+
+    {
+      "task_id": "e_summ_3",
+      "prompt": "Condense this to a single sentence: The startup began in a garage, struggled for two years, pivoted its product twice, and was eventually acquired by a larger competitor for a record sum.",
+      "category": "summarisation",
+      "expected_intent": "One-sentence summary capturing the startup's struggle and eventual lucrative acquisition."
+    },
+    {
+      "task_id": "e_summ_4",
+      "prompt": "TL;DR: The new policy requires all employees to work from the office three days a week, offers a commuting stipend, and takes effect next month.",
+      "category": "summarisation",
+      "expected_intent": "Brief summary capturing the 3-day in-office policy with a stipend, starting next month."
+    },
+    {
+      "task_id": "e_summ_5",
+      "prompt": "Summarise the key point in under 15 words: After months of testing, researchers concluded the drug reduced symptoms but caused side effects in a third of patients.",
+      "category": "summarisation",
+      "expected_intent": "Short summary noting the drug reduced symptoms but caused side effects in many patients."
+    },
+
+    {
+      "task_id": "e_ner_3",
+      "prompt": "Which people, organisations, and places are mentioned here: Satya Nadella met the mayor of Berlin during Microsoft's European tour.",
+      "category": "named_entity_recognition",
+      "expected_intent": "Identifies Satya Nadella (person), Microsoft (organisation), and Berlin (location)."
+    },
+    {
+      "task_id": "e_ner_4",
+      "prompt": "Pull out the named entities: The Amazon river flows through Brazil and Peru before reaching the Atlantic.",
+      "category": "named_entity_recognition",
+      "expected_intent": "Identifies Amazon (river/location), Brazil and Peru (locations), and the Atlantic (location)."
+    },
+    {
+      "task_id": "e_ner_5",
+      "prompt": "Identify the entities in: Serena Williams won at Wimbledon in July 2016.",
+      "category": "named_entity_recognition",
+      "expected_intent": "Identifies Serena Williams (person), Wimbledon (location/event), and July 2016 (date)."
+    },
+
+    {
+      "task_id": "e_debug_3",
+      "prompt": "This is supposed to count vowels but returns 0 every time. Debug it: def count_vowels(s):\n    n = 0\n    for c in s:\n        if c in 'AEIOU':\n            n += 1\n    return n",
+      "category": "code_debugging",
+      "expected_intent": "Identifies that only uppercase vowels are matched and fixes it to be case-insensitive; returns the corrected function."
+    },
+    {
+      "task_id": "e_debug_4",
+      "prompt": "There's a bug here causing an off-by-one; fix it: def last_item(lst): return lst[len(lst)]",
+      "category": "code_debugging",
+      "expected_intent": "Identifies the index-out-of-range and corrects it to lst[len(lst) - 1] or lst[-1]."
+    },
+    {
+      "task_id": "e_debug_5",
+      "prompt": "Why does this raise a TypeError and how do I fix it: def add_all(items): total = 0; return total + items",
+      "category": "code_debugging",
+      "expected_intent": "Explains that items is a list being added to an int and fixes it to sum the items; returns corrected code."
+    },
+
+    {
+      "task_id": "e_logic_3",
+      "prompt": "Four runners finished a race. Dana beat Evan. Evan beat Faye. Faye beat Gus. Who came last?",
+      "category": "logical_reasoning",
+      "expected_intent": "Concludes Gus came last."
+    },
+    {
+      "task_id": "e_logic_4",
+      "prompt": "All roses are flowers. Some flowers fade quickly. Can we conclude that some roses fade quickly? Answer yes or no.",
+      "category": "logical_reasoning",
+      "expected_intent": "Answers no (the conclusion does not follow)."
+    },
+    {
+      "task_id": "e_logic_5",
+      "prompt": "A is north of B. C is south of B. Which is furthest north?",
+      "category": "logical_reasoning",
+      "expected_intent": "Concludes A is furthest north."
+    },
+
+    {
+      "task_id": "e_codegen_3",
+      "prompt": "Implement a function in Python that returns the nth Fibonacci number (0-indexed).",
+      "category": "code_generation",
+      "expected_intent": "Returns a correct Fibonacci function as a single code block."
+    },
+    {
+      "task_id": "e_codegen_4",
+      "prompt": "Write a Python function that takes a list of integers and returns only the even ones.",
+      "category": "code_generation",
+      "expected_intent": "Returns a correct function filtering even integers, as a single code block."
+    },
+    {
+      "task_id": "e_codegen_5",
+      "prompt": "Create a Python function that counts how many times each word appears in a sentence and returns a dictionary.",
+      "category": "code_generation",
+      "expected_intent": "Returns a correct word-frequency function returning a dict, as a single code block."
     }
   ]
 }

@@ -122,6 +122,15 @@ def test_malformed_input_still_leaves_valid_json(tmp_path, monkeypatch):
         ("Is this feedback positive or negative: 'the product broke after two days.'", "sentiment_classification"),
         ("This function should return the average but crashes on an empty list. Fix it: def avg(xs): return sum(xs)/len(xs)", "code_debugging"),
         ("List the named entities: Apple announced it in Cupertino.", "named_entity_recognition"),
+        # Harder rewordings the expanded eval set caught (was misrouting to factual):
+        ("If a shirt costs $40 and is discounted by 25%, what is the sale price?", "math_reasoning"),
+        ("Classify the tone of this tweet: 'ten out of ten.'", "sentiment_classification"),
+        ("Positive, negative, or neutral: 'worst service ever.'", "sentiment_classification"),
+        ("Which people, organisations, and places are mentioned here: Satya met the mayor.", "named_entity_recognition"),
+        ("Four runners finished. Dana beat Evan. Who came last?", "logical_reasoning"),
+        ("A is north of B. C is south of B. Which is furthest north?", "logical_reasoning"),
+        # Must NOT be stolen by the superlative logic pattern:
+        ("In which year did the first human land on the Moon?", "factual_knowledge"),
     ],
 )
 def test_classify(prompt, expected):
