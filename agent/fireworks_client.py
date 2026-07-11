@@ -34,6 +34,32 @@ def _get_client() -> OpenAI:
     return _client
 
 
+# Reasoning models (e.g. deepseek-v4-pro) narrate "We are asked:..." before
+# answering, which (a) truncates the real answer under a tight max_tokens and
+# (b) bills tokens that buy nothing -- the exact metric we're ranked on.
+# reasoning_effort=none suppressed it: 299 -> 60 tokens, same answer.
+#
+# But the harness injects an UNKNOWN model list on launch day, and a model that
+# doesn't recognise the param returns 400. So we send it by default, and if the
+# call is rejected for it, transparently retry WITHOUT it -- never let this
+# optimisation cost a submission. Set REASONING_EFFORT="" to disable entirely.
+REASONING_EFFORT = os.environ.get("REASONING_EFFORT", "none")
+
+
+def _looks_like_param_rejection(exc: Exception) -> bool:
+    """True if the error is the server rejecting an unknown/invalid parameter
+    (HTTP 400), as opposed to a transient failure worth retrying as-is.
+
+    Checks status_code (the OpenAI SDK sets it on APIStatusError) before the
+    message text: a substring like "400" would also match "try again in 400ms"
+    or "4000 tokens", misclassifying transients.
+    """
+    if getattr(exc, "status_code", None) == 400:
+        return True
+    msg = str(exc).lower()
+    return "invalid_request" in msg or "extra inputs" in msg
+
+
 def call_model(prompt: str, system_prompt: str, model: str, max_tokens: int) -> dict:
     """Single call to Fireworks. Retries once on transient failure, then
     degrades to a best-effort empty answer so the task still returns.
@@ -52,22 +78,39 @@ def call_model(prompt: str, system_prompt: str, model: str, max_tokens: int) -> 
     except RuntimeError as exc:
         return {"answer": "", "tokens": 0, "error": str(exc)}
 
-    for attempt in range(2):  # 1 retry on transient error
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": prompt},
+    ]
+    # extra_body carries reasoning_effort; dropped if the model rejects it.
+    extra_body = {"reasoning_effort": REASONING_EFFORT} if REASONING_EFFORT else None
+
+    # Two independent retry budgets, so a param-drop retry never consumes the
+    # transient one (a range(2) loop here once fell off the end and returned
+    # None when a transient error preceded a 400). Each branch is bounded --
+    # extra_body can only be dropped once, transient_left only decrements --
+    # so the loop makes at most 3 requests and always returns a dict.
+    transient_left = 1
+    while True:
         try:
             response = client.chat.completions.create(
                 model=model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": prompt},
-                ],
+                messages=messages,
                 max_tokens=max_tokens,
                 temperature=0.2,  # low temp = more consistent, deterministic-ish answers
+                extra_body=extra_body,
             )
             answer = (response.choices[0].message.content or "").strip()
             tokens_used = response.usage.total_tokens if response.usage else 0
             return {"answer": answer, "tokens": tokens_used, "error": None}
         except Exception as exc:
-            if attempt == 0:
+            # If the model rejected reasoning_effort, drop it and retry once
+            # without it -- the param is an optimisation, never a requirement.
+            if extra_body is not None and _looks_like_param_rejection(exc):
+                extra_body = None
+                continue
+            if transient_left:
+                transient_left -= 1
                 time.sleep(1)  # brief pause before retry
                 continue
             return {"answer": "", "tokens": 0, "error": str(exc)}

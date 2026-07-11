@@ -47,6 +47,103 @@ def test_detailed_and_frozen_agree_on_answer(mock_client):
     assert answer_task(task) == answer_task_detailed(task)["answer"]
 
 
+def test_reasoning_param_rejection_falls_back(monkeypatch):
+    # A model that rejects reasoning_effort (400) must not fail the call: drop
+    # the param and retry. This is the compliance safety net for launch day,
+    # when the injected model list is unknown.
+    monkeypatch.setenv("ALLOWED_MODELS", "test-model")
+    monkeypatch.setattr(fc, "REASONING_EFFORT", "none")
+    seen = []
+
+    def create(**kw):
+        seen.append(kw.get("extra_body"))
+        if kw.get("extra_body") is not None:
+            raise Exception("Error code: 400 - invalid_request_error: Extra inputs are not permitted")
+        return _mock_completion("ok", 10)
+
+    fake = MagicMock()
+    fake.chat.completions.create = create
+    monkeypatch.setattr(fc, "_get_client", lambda: fake)
+
+    result = fc.call_model("p", "s", "test-model", 100)
+    assert result["answer"] == "ok" and result["error"] is None
+    assert seen == [{"reasoning_effort": "none"}, None]  # tried with, then without
+
+
+def test_reasoning_param_sent_when_enabled(monkeypatch):
+    monkeypatch.setenv("ALLOWED_MODELS", "test-model")
+    monkeypatch.setattr(fc, "REASONING_EFFORT", "none")
+    seen = []
+
+    def create(**kw):
+        seen.append(kw.get("extra_body"))
+        return _mock_completion("ok", 10)
+
+    fake = MagicMock()
+    fake.chat.completions.create = create
+    monkeypatch.setattr(fc, "_get_client", lambda: fake)
+
+    fc.call_model("p", "s", "test-model", 100)
+    assert seen == [{"reasoning_effort": "none"}]  # sent on the first try
+
+
+def test_transient_then_param_rejection_still_returns_dict(monkeypatch):
+    # Regression: a transient failure followed by a 400 used to exhaust the
+    # retry loop and fall off the end, returning None -- which broke the
+    # "never raises" invariant one frame up. Must drop the param and try again.
+    monkeypatch.setenv("ALLOWED_MODELS", "test-model")
+    monkeypatch.setattr(fc, "REASONING_EFFORT", "none")
+    monkeypatch.setattr(fc.time, "sleep", lambda s: None)
+    calls = []
+
+    def create(**kw):
+        calls.append(kw.get("extra_body"))
+        if len(calls) == 1:
+            raise Exception("connection timed out")
+        if len(calls) == 2:
+            raise Exception("Error code: 400 - invalid_request_error: Extra inputs are not permitted")
+        return _mock_completion("ok", 7)
+
+    fake = MagicMock()
+    fake.chat.completions.create = create
+    monkeypatch.setattr(fc, "_get_client", lambda: fake)
+
+    result = fc.call_model("p", "s", "test-model", 100)
+    assert result is not None and result["answer"] == "ok" and result["error"] is None
+    assert calls == [{"reasoning_effort": "none"}, {"reasoning_effort": "none"}, None]
+
+
+def test_transient_mentioning_400ms_keeps_reasoning_param(monkeypatch):
+    # "try again in 400ms" is a transient, not a param rejection: the retry
+    # must keep extra_body rather than throwing the optimisation away.
+    monkeypatch.setenv("ALLOWED_MODELS", "test-model")
+    monkeypatch.setattr(fc, "REASONING_EFFORT", "none")
+    monkeypatch.setattr(fc.time, "sleep", lambda s: None)
+    calls = []
+
+    def create(**kw):
+        calls.append(kw.get("extra_body"))
+        if len(calls) == 1:
+            raise Exception("Error code: 429 - rate limited, try again in 400ms")
+        return _mock_completion("ok", 7)
+
+    fake = MagicMock()
+    fake.chat.completions.create = create
+    monkeypatch.setattr(fc, "_get_client", lambda: fake)
+
+    result = fc.call_model("p", "s", "test-model", 100)
+    assert result["answer"] == "ok"
+    assert calls == [{"reasoning_effort": "none"}, {"reasoning_effort": "none"}]
+
+
+def test_param_rejection_detected_by_status_code():
+    exc = Exception("Bad request")
+    exc.status_code = 400
+    assert fc._looks_like_param_rejection(exc)
+    # Substring "400"/"4000" alone is not evidence of a param rejection.
+    assert not fc._looks_like_param_rejection(Exception("maximum context is 4000 tokens"))
+
+
 def test_call_model_never_raises_without_credentials(monkeypatch):
     # No key set: must return an error dict, not raise -- eval tooling has no
     # per-call guard of its own.
