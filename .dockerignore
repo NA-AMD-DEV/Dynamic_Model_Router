@@ -12,5 +12,6 @@ venv/
 fixtures/
 tests/
 eval/
+demo/
 requirements-dev.txt
 out/
