@@ -1,0 +1,6 @@
+results.json
+usage_log.json
+score_report.json
+token_report.json
+__pycache__/
+*.pyc
