@@ -20,6 +20,15 @@ _client: OpenAI | None = None
 # for network overhead on top of the call itself.
 REQUEST_TIMEOUT_S = float(os.environ.get("REQUEST_TIMEOUT_S", "25"))
 
+# 0.2 sampled a genuinely different completion on every run -- harmless for
+# most categories (any correct phrasing passes), but summarisation's rubric is
+# exact-format (precise sentence/bullet/word counts), so the SAME prompt could
+# land at 2 sentences one run and 3 the next: a pass flipping to a fail purely
+# from sampling, not quality. The judge shares this call path, so grading of
+# an identical answer could also vary run to run. 0.0 minimizes (does not
+# guarantee -- some providers retain minor nondeterminism even at 0) that.
+TEMPERATURE = float(os.environ.get("TEMPERATURE", "0.0"))
+
 
 def _get_client() -> OpenAI:
     """Constructed on first use, not at import — so importing this module in a
@@ -147,7 +156,7 @@ def call_model(prompt: str, system_prompt: str, model: str, max_tokens: int,
                 model=model,
                 messages=messages,
                 max_tokens=max_tokens,
-                temperature=0.2,  # low temp = more consistent, deterministic-ish answers
+                temperature=TEMPERATURE,
                 extra_body=extra_body,
             )
             choice = response.choices[0]

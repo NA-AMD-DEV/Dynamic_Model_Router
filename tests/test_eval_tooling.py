@@ -41,6 +41,45 @@ def test_detailed_seam_exposes_tokens_and_category(mock_client):
     assert detail["error"] is None
 
 
+def test_temperature_defaults_to_zero_for_run_to_run_consistency(monkeypatch):
+    # 0.2 let the SAME prompt sample a different completion each run --
+    # invisible everywhere except summarisation's exact-format rubric, where
+    # it flipped pass/fail on identical inputs. Default must be 0.0, and
+    # call_model must forward whatever TEMPERATURE currently is, never a
+    # hardcoded literal.
+    assert fc.TEMPERATURE == 0.0
+    monkeypatch.setenv("ALLOWED_MODELS", "test-model")
+    seen = {}
+
+    def create(**kw):
+        seen["temperature"] = kw["temperature"]
+        return _mock_completion("ok", 5)
+
+    fake = MagicMock()
+    fake.chat.completions.create = create
+    monkeypatch.setattr(fc, "_get_client", lambda: fake)
+
+    fc.call_model("p", "s", "test-model", 10)
+    assert seen["temperature"] == 0.0
+
+
+def test_temperature_is_env_overridable(monkeypatch):
+    monkeypatch.setenv("ALLOWED_MODELS", "test-model")
+    monkeypatch.setattr(fc, "TEMPERATURE", 0.7)  # simulates TEMPERATURE=0.7 at import
+    seen = {}
+
+    def create(**kw):
+        seen["temperature"] = kw["temperature"]
+        return _mock_completion("ok", 5)
+
+    fake = MagicMock()
+    fake.chat.completions.create = create
+    monkeypatch.setattr(fc, "_get_client", lambda: fake)
+
+    fc.call_model("p", "s", "test-model", 10)
+    assert seen["temperature"] == 0.7
+
+
 def test_detailed_seam_exposes_token_split_and_truncation(mock_client):
     mock_client.chat.completions.create.return_value = _mock_completion(
         "partial", 50, prompt_tokens=30, completion_tokens=20, finish_reason="length"
