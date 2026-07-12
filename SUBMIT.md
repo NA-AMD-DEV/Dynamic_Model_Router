@@ -43,13 +43,14 @@ If this pull fails, the image isn't public yet — fix visibility before submitt
 ## 3. Run the freshly-pulled image and validate output
 
 ```bash
-mkdir -p out
+mkdir -p out && rm -f out/results.json         # clear stale output first
 MSYS_NO_PATHCONV=1 docker run --rm \
   -v "$(pwd -W)/fixtures:/input:ro" \
   -v "$(pwd -W)/out:/output" \
   -e FIREWORKS_API_KEY="$FIREWORKS_API_KEY" \
   -e FIREWORKS_BASE_URL="$FIREWORKS_BASE_URL" \
-  -e ALLOWED_MODELS="accounts/fireworks/models/minimax-m3,accounts/fireworks/models/kimi-k2p7-code,accounts/fireworks/models/gemma-4-31b-it,accounts/fireworks/models/gemma-4-26b-a4b-it,accounts/fireworks/models/gemma-4-31b-it-nvfp4"
+  -e ALLOWED_MODELS="accounts/fireworks/models/minimax-m3,accounts/fireworks/models/kimi-k2p7-code,accounts/fireworks/models/gemma-4-31b-it,accounts/fireworks/models/gemma-4-26b-a4b-it,accounts/fireworks/models/gemma-4-31b-it-nvfp4" \
+  <USER>/dynamic-model-router:v1                # <-- the IMAGE must be the last arg
 
 python -c "import json; d=json.load(open('out/results.json')); assert all('task_id' in r and isinstance(r['answer'], str) for r in d); print('OK:', len(d), 'rows, all valid')"
 ```
