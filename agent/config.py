@@ -46,6 +46,9 @@ class _Default:
     tier: str = ""
     reasoning: str | None = None  # None -> global REASONING_EFFORT (usually "none")
     specialist: str = ""          # e.g. "code": prefer a code-tuned model if one exists
+    lean_ok: bool = True          # False: measurement showed the lean model fails
+    #                               this category's rubric -- stay on the
+    #                               capability-ranked pick instead
 
 
 def allowed_models() -> list[str]:
@@ -345,6 +348,10 @@ _DEFAULTS: dict[str, _Default] = {
         "Output ONLY the summary.",
         200,
         tier="medium",
+        # MEASURED: the lean (code-tuned) model scored 62% here -- it misses
+        # exact-format constraints -- while the capability pick scored 100%.
+        # +~800 tokens buys back the gate margin. Correctness first.
+        lean_ok=False,
     ),
     "named_entity_recognition": _Default(
         0,
@@ -413,7 +420,8 @@ def config_for(category: str) -> Config:
         elif spec.specialist and pick_specialist(spec.specialist):
             model = pick_specialist(spec.specialist)
         elif spec.tier:
-            model = pick_lean() or pick_capability(spec.tier)
+            lean = pick_lean() if spec.lean_ok else ""
+            model = lean or pick_capability(spec.tier)
         else:
             model = pick_model(spec.model_index)
 

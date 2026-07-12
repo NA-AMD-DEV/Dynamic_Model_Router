@@ -46,7 +46,7 @@ def test_calibration_ranks_by_measured_prompt_tokens(monkeypatch):
     calibrate_lean()
     assert pick_lean() == "lean-model"
     # General categories route to the measured-leanest model...
-    assert config_for("summarisation").model == "lean-model"
+    assert config_for("sentiment_classification").model == "lean-model"
     assert config_for("factual_knowledge").model == "lean-model"
 
 
@@ -59,9 +59,23 @@ def test_lean_can_select_a_code_specialist_for_general_categories(monkeypatch):
                         lambda p, s, model, m, **kw: _probe_result(costs[model]))
     calibrate_lean()
     assert config_for("sentiment_classification").model == "kimi-k2p7-code"
-    assert config_for("summarisation").model == "kimi-k2p7-code"
+    assert config_for("factual_knowledge").model == "kimi-k2p7-code"
     # Code categories were already on the specialist -- unchanged.
     assert config_for("code_generation").model == "kimi-k2p7-code"
+
+
+def test_lean_pinned_category_stays_on_capability_pick(monkeypatch):
+    # MEASURED: the lean (code-tuned) model scored 62% on summarisation's
+    # exact-format rubric while the capability pick scored 100%. lean_ok=False
+    # keeps that category off the lean pick even after calibration.
+    monkeypatch.setenv("ALLOWED_MODELS", "minimax-m3, kimi-k2p7-code")
+    costs = {"minimax-m3": 137, "kimi-k2p7-code": 42}
+    monkeypatch.setattr(fc, "call_model",
+                        lambda p, s, model, m, **kw: _probe_result(costs[model]))
+    calibrate_lean()
+    assert pick_lean() == "kimi-k2p7-code"                       # lean exists...
+    assert config_for("summarisation").model == "minimax-m3"     # ...but pinned
+    assert config_for("sentiment_classification").model == "kimi-k2p7-code"
 
 
 def test_calibration_skipped_with_fewer_than_two_live_models(monkeypatch):
@@ -113,7 +127,10 @@ def test_dead_model_probe_is_excluded_not_misattributed(monkeypatch):
     assert "gemma-4-31b-it" in cfg._UNAVAILABLE      # dead ones blocklisted
     assert "gemma-4-26b-a4b-it" in cfg._UNAVAILABLE
     picks = {c: config_for(c).model for c in cfg.CATEGORIES}
-    assert set(picks.values()) == {"kimi-k2p7-code"}  # everything on the lean pick
+    # No dead model survives; everything lean except the pinned summarisation.
+    assert set(picks.values()) <= {"kimi-k2p7-code", "minimax-m3"}
+    assert picks["summarisation"] == "minimax-m3"
+    assert picks["sentiment_classification"] == "kimi-k2p7-code"
 
 
 def test_probe_tokens_are_accumulated(monkeypatch):
