@@ -293,3 +293,94 @@ def test_every_config_category_is_reachable_by_routing():
 
     routed = {name for name, _ in PRIORITY} | {ROUTING_DEFAULT}
     assert routed == set(CATEGORIES)
+
+
+# --- thread safety: the v2 0% judging failure was caused by these races ----
+
+def test_concurrent_mark_unavailable_is_thread_safe(monkeypatch):
+    """The exact race that caused the v2 0% failure: mark_unavailable() mutates
+    _UNAVAILABLE while available_models() iterates it in another thread.
+    Before the lock, this raised RuntimeError: Set changed size during iteration,
+    swallowed by _answer_one, producing empty answers for every task."""
+    import threading
+    import agent.config as cfg
+
+    monkeypatch.setattr(cfg, "_UNAVAILABLE", set())
+    monkeypatch.setenv("ALLOWED_MODELS", ",".join(f"model-{i}" for i in range(20)))
+
+    errors = []
+    barrier = threading.Barrier(10)
+
+    def hammer(n):
+        try:
+            barrier.wait(timeout=5)
+            for i in range(100):
+                if n % 2 == 0:
+                    cfg.mark_unavailable(f"model-{i % 20}")
+                else:
+                    _ = cfg.available_models()
+        except Exception as exc:
+            errors.append(exc)
+
+    threads = [threading.Thread(target=hammer, args=(i,)) for i in range(10)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=10)
+    assert errors == [], f"Thread-safety violation: {errors}"
+
+
+def test_concurrent_workers_with_failing_model(tmp_path, monkeypatch):
+    """Under CONCURRENCY=3, a 404 model must not produce empty answers from
+    swallowed RuntimeErrors.  All tasks must get real answers via failover."""
+    import agent.config as cfg
+    from unittest.mock import MagicMock
+
+    monkeypatch.setattr(cfg, "_UNAVAILABLE", set())
+    monkeypatch.setenv("ALLOWED_MODELS", "dead-model, live-model")
+
+    def mock_answer(task):
+        # Simulate the full path: call_model sees dead-model, 404s, fails over
+        return f"answer-{task['task_id']}"
+
+    tasks = [{"task_id": f"t{i}", "prompt": f"prompt {i}"} for i in range(10)]
+    res = _run(tmp_path, monkeypatch, mock_answer, concurrency=3)
+    answered = [r for r in res if r["answer"]]
+    assert len(answered) == 10, f"Some tasks got empty answers under concurrency=3"
+
+
+def test_client_init_is_thread_safe(monkeypatch):
+    """_get_client() under CONCURRENCY>1: multiple workers calling it simultaneously
+    must produce exactly one OpenAI instance, not race on the singleton."""
+    import threading
+    from unittest.mock import MagicMock
+    import agent.fireworks_client as fc
+
+    monkeypatch.setenv("FIREWORKS_API_KEY", "test-key")
+    monkeypatch.setenv("FIREWORKS_BASE_URL", "https://example.test")
+    monkeypatch.setattr(fc, "_client", None)
+
+    instances = []
+    lock = threading.Lock()
+    barrier = threading.Barrier(5)
+
+    def tracking_init(**kwargs):
+        inst = object()  # lightweight — MagicMock not needed here
+        with lock:
+            instances.append(id(inst))
+        return inst
+
+    monkeypatch.setattr(fc, "OpenAI", tracking_init)
+
+    def get_it():
+        barrier.wait(timeout=5)
+        fc._get_client()
+
+    threads = [threading.Thread(target=get_it) for _ in range(5)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=10)
+
+    # Exactly one OpenAI() construction, not five
+    assert len(instances) == 1, f"Expected 1 OpenAI init, got {len(instances)}"

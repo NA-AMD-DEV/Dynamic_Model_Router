@@ -339,6 +339,33 @@ def test_param_rejection_detected_by_status_code():
     assert not fc._looks_like_param_rejection(Exception("maximum context is 4000 tokens"))
 
 
+def test_hard_error_fails_over_to_next_model(monkeypatch):
+    """After transient + param retries are exhausted on one model, call_model
+    tries the remaining live models before returning empty -- maximises the
+    chance of a non-empty answer in an unfamiliar judging environment."""
+    import agent.config as cfg
+    monkeypatch.setattr(cfg, "_UNAVAILABLE", set())
+    monkeypatch.setenv("ALLOWED_MODELS", "model-a, model-b")
+    monkeypatch.setattr(fc, "REASONING_EFFORT", "")
+    monkeypatch.setattr(fc.time, "sleep", lambda s: None)
+    seen = []
+
+    def create(**kw):
+        seen.append(kw["model"])
+        if kw["model"] == "model-a":
+            raise Exception("500 internal server error")
+        return _mock_completion("ok from b", 8)
+
+    fake = MagicMock()
+    fake.chat.completions.create = create
+    monkeypatch.setattr(fc, "_get_client", lambda: fake)
+
+    result = fc.call_model("p", "s", "model-a", 50)
+    assert result["answer"] == "ok from b" and result["error"] is None
+    # model-a tried twice (initial + transient retry), then failed over to model-b
+    assert seen == ["model-a", "model-a", "model-b"]
+
+
 def test_call_model_never_raises_without_credentials(monkeypatch):
     # No key set: must return an error dict, not raise -- eval tooling has no
     # per-call guard of its own.

@@ -64,6 +64,12 @@ def run(tasks: list[dict]) -> dict[str, str]:
         tid = task.get("task_id") or f"__missing_{i}"
         results[tid] = FALLBACK
 
+    # Diagnostic: what the harness injected. Critical for debugging a 0%
+    # judging failure where we can't reproduce the environment.
+    print(f"run: ALLOWED_MODELS={os.environ.get('ALLOWED_MODELS', '(unset)')}", file=sys.stderr)
+    print(f"run: FIREWORKS_BASE_URL={os.environ.get('FIREWORKS_BASE_URL', '(unset)')}", file=sys.stderr)
+    print(f"run: ROUTER_CONCURRENCY={CONCURRENCY}, tasks={len(tasks)}", file=sys.stderr)
+
     # Measure each live model's template cost ONCE, single-threaded, before
     # any worker exists -- routing then prefers the leanest model. Also doubles
     # as a warmup (absorbs cold starts) and self-heal (dead models 404 here,
@@ -71,6 +77,10 @@ def run(tasks: list[dict]) -> dict[str, str]:
     try:
         from agent.config import calibrate_lean
         calibrate_lean()
+        from agent.config import pick_lean, available_models as _avail, _UNAVAILABLE
+        print(f"run: calibration done, lean={pick_lean() or '(none)'}, "
+              f"live_models={_avail()}, unavailable={_UNAVAILABLE}",
+              file=sys.stderr)
     except Exception as exc:
         print(f"lean calibration skipped: {exc!r}", file=sys.stderr)
 
@@ -93,7 +103,7 @@ def _answer_one(task: dict, tid: str) -> str | None:
     try:
         answer = answer_task(task)
     except Exception as exc:  # one bad task must not sink the batch
-        print(f"task {tid} failed: {exc!r}", file=sys.stderr)
+        print(f"task {tid} failed: {type(exc).__name__}: {exc!r}", file=sys.stderr)
         return None
     return answer if isinstance(answer, str) else str(answer)
 

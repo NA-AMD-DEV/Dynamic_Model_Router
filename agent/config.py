@@ -15,6 +15,7 @@ Model IDs come from ALLOWED_MODELS at runtime, never from a literal here.
 import os
 import re
 import sys
+import threading
 from dataclasses import dataclass
 
 DEFAULT_CATEGORY = "factual_knowledge"
@@ -63,19 +64,28 @@ def allowed_models() -> list[str]:
 # model that needs a dedicated deployment); calling one 404s and fails the task.
 # call_model records them here on a 404 so routing never picks them again --
 # a runtime-learned filter, no model name ever hardcoded.
+#
+# Thread-safety: workers read this via available_models() while another worker's
+# mark_unavailable() mutates it.  A bare set iteration + mutation = RuntimeError
+# under concurrency.  The lock serialises both; available_models snapshots under
+# the lock so iteration is always over a private copy.
 _UNAVAILABLE: set[str] = set()
+_UNAVAILABLE_LOCK = threading.Lock()
 
 
 def mark_unavailable(model: str) -> None:
     if model:
-        _UNAVAILABLE.add(model)
+        with _UNAVAILABLE_LOCK:
+            _UNAVAILABLE.add(model)
 
 
 def available_models() -> list[str]:
     """ALLOWED_MODELS minus any learned to be undeployed this run. Falls back to
     the full list if every model has been marked (better to retry a maybe-flaky
     one than route to nothing)."""
-    live = [m for m in allowed_models() if m not in _UNAVAILABLE]
+    with _UNAVAILABLE_LOCK:
+        unavail = set(_UNAVAILABLE)          # snapshot under lock
+    live = [m for m in allowed_models() if m not in unavail]
     return live or allowed_models()
 
 
@@ -224,8 +234,10 @@ def pick_lean() -> str:
     """The measured-leanest live model, or "" when calibration hasn't run /
     found nothing (caller falls back to capability ranking)."""
     if _lean_ranking:
+        with _UNAVAILABLE_LOCK:
+            unavail = set(_UNAVAILABLE)
         for m in _lean_ranking:
-            if m not in _UNAVAILABLE:
+            if m not in unavail:
                 return m
     return ""
 

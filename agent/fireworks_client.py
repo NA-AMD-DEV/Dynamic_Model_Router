@@ -5,13 +5,16 @@ agent/core.py calls `call_model` once per task with that category's config.
 
 import os
 import re
+import sys
 import time
+import threading
 
 from openai import OpenAI
 
 from agent.config import available_models, mark_unavailable
 
 _client: OpenAI | None = None
+_client_lock = threading.Lock()
 
 # The harness requires each request to complete under 30s. The OpenAI SDK's
 # default timeout is 600s, which would let one hung call blow both that limit
@@ -33,9 +36,17 @@ TEMPERATURE = float(os.environ.get("TEMPERATURE", "0.0"))
 def _get_client() -> OpenAI:
     """Constructed on first use, not at import — so importing this module in a
     test or a REPL doesn't require FIREWORKS_API_KEY to already be set.
+
+    Thread-safe: under ROUTER_CONCURRENCY>1, multiple workers may call this
+    simultaneously.  Double-checked locking ensures exactly one OpenAI instance
+    is constructed.
     """
     global _client
-    if _client is None:
+    if _client is not None:
+        return _client
+    with _client_lock:
+        if _client is not None:          # double-check after acquiring lock
+            return _client
         api_key = os.environ.get("FIREWORKS_API_KEY")
         base_url = os.environ.get("FIREWORKS_BASE_URL")
         if not api_key or not base_url:
@@ -195,8 +206,10 @@ def call_model(prompt: str, system_prompt: str, model: str, max_tokens: int,
                 tried_models.add(model)
                 nxt = next((m for m in available_models() if m not in tried_models), None)
                 if nxt:
+                    print(f"call_model: {model} unavailable, failing over to {nxt}", file=sys.stderr)
                     model = nxt
                     continue
+                print(f"call_model: all models exhausted after {model} unavailable", file=sys.stderr)
                 return _failure(str(exc))
             # If the model rejected reasoning_effort, drop it and retry once
             # without it -- the param is an optimisation, never a requirement.
@@ -207,6 +220,25 @@ def call_model(prompt: str, system_prompt: str, model: str, max_tokens: int,
                 transient_left -= 1
                 time.sleep(1)  # brief pause before retry
                 continue
+            # All retries for THIS model are exhausted. In failover mode, try
+            # the remaining live models before giving up — maximises the chance
+            # of a non-empty answer in an unfamiliar judging environment where
+            # different models may accept different params or have different
+            # availability windows.
+            if allow_failover:
+                tried_models.add(model)
+                nxt = next((m for m in available_models() if m not in tried_models), None)
+                if nxt:
+                    print(f"call_model: {model} hard-failed ({str(exc)[:80]}), "
+                          f"trying {nxt}", file=sys.stderr)
+                    model = nxt
+                    transient_left = 1  # fresh retry budget for the new model
+                    # Re-enable reasoning_effort for the new model — it may
+                    # support what the old one rejected.
+                    effort = reasoning_effort if reasoning_effort is not None else REASONING_EFFORT
+                    extra_body = {"reasoning_effort": effort} if effort else None
+                    continue
+            print(f"call_model failed: model={model} error={str(exc)[:200]}", file=sys.stderr)
             return _failure(str(exc))
 
 

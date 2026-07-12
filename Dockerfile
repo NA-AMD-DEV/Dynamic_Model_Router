@@ -21,10 +21,12 @@ COPY agent/ ./agent/
 # user risks EACCES on results.json — a missing output file scores zero, which
 # is a far worse outcome than running privileged in a throwaway judging VM.
 
-# 3 in-flight calls: sequential worst case (48 tasks × up to ~51s with a retry)
-# can blow the 10-minute wall, and every task left behind keeps the "" fallback
-# — guaranteed accuracy damage. 3 keeps the rate-limit blast radius small.
-ENV ROUTER_CONCURRENCY=3
+# Sequential by default for v3: eliminates the concurrency class of bugs that
+# caused the v2 0% judging failure (thread-unsafe _UNAVAILABLE set).  The
+# measured wall time at concurrency=1 is ~48s for 64 tasks — far under the
+# 10-minute limit.  Thread-safety locks are in place (config.py, fireworks_client.py),
+# so raising to 3 is safe once verified, but not worth the risk for v3.
+ENV ROUTER_CONCURRENCY=1
 
 # No .env, no API key. FIREWORKS_BASE_URL, FIREWORKS_API_KEY, and ALLOWED_MODELS
 # are injected by the harness at run time and read via os.environ.
