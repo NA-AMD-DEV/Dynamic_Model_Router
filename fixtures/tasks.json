@@ -1,0 +1,12 @@
+[
+  { "task_id": "t1", "prompt": "Summarise in one sentence: the quick brown fox jumped over the lazy dog while the farmer watched." },
+  { "task_id": "t2", "prompt": "Write a Python function that reverses a linked list." },
+  { "task_id": "t3", "prompt": "What is the sentiment of this review: 'Absolutely loved it, best purchase this year.'" },
+  { "task_id": "t4", "prompt": "Extract the named entities from: Ada Lovelace worked with Charles Babbage in London." },
+  { "task_id": "t5", "prompt": "What's wrong with this function, it raises an error: def f(x): return x / 0" },
+  { "task_id": "t6", "prompt": "Calculate 17 * 23 and then subtract 40." },
+  { "task_id": "t7", "prompt": "If Alice is taller than Bob, and Bob is taller than Carol, who is shortest?" },
+  { "task_id": "t8", "prompt": "Summarize what this function does: def f(x): return x * 2" },
+  { "task_id": "t9", "prompt": "" },
+  { "task_id": "t10", "prompt": "What is the capital of Australia?" }
+]

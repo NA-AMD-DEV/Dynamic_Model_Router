@@ -1,0 +1,4 @@
+# Dev only. Never installed into the image — see Dockerfile, which uses
+# requirements.txt alone. Keeps the shipped layer small.
+-r requirements.txt
+pytest==8.3.4
