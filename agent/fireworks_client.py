@@ -89,12 +89,20 @@ def _strip_think(text: str) -> str:
 
 
 def call_model(prompt: str, system_prompt: str, model: str, max_tokens: int,
-               reasoning_effort: str | None = None) -> dict:
+               reasoning_effort: str | None = None,
+               allow_failover: bool = True) -> dict:
     """Single call to Fireworks. Retries once on transient failure, then
     degrades to a best-effort empty answer so the task still returns.
 
     Returns {"answer": str, "tokens": int, "prompt_tokens": int,
-             "completion_tokens": int, "truncated": bool, "error": str | None}.
+             "completion_tokens": int, "truncated": bool,
+             "actual_model": str, "error": str | None}.
+
+    `allow_failover=False` is probe mode (used by config.calibrate_lean): the
+    requested model is called exactly as given -- no substitution on entry, no
+    failover to another model on 404, and NO mark_unavailable from inside this
+    client. A probe must never attribute one model's usage to another, and all
+    availability bookkeeping stays with the (single-threaded) caller.
 
     `tokens` is the total; the prompt/completion split exists because the
     official ranking may count only completion tokens (the leaderboard numbers
@@ -107,7 +115,7 @@ def call_model(prompt: str, system_prompt: str, model: str, max_tokens: int,
     nothing, so it keeps the generous global default it needs to emit a verdict.
     """
     models = available_models()
-    if models and model not in models:
+    if allow_failover and models and model not in models:
         model = models[0]  # safety net: never call a disallowed/dead model
 
     # Missing credentials is a config error, not a transient one: fail fast
@@ -151,12 +159,19 @@ def call_model(prompt: str, system_prompt: str, model: str, max_tokens: int,
                 "prompt_tokens": (usage.prompt_tokens if usage else 0) or 0,
                 "completion_tokens": (usage.completion_tokens if usage else 0) or 0,
                 "truncated": choice.finish_reason == "length",
+                # `model` here is whatever was actually called (it mutates on
+                # failover); prefer the server's echo when it exposes one.
+                "actual_model": getattr(response, "model", None) or model,
                 "error": None,
             }
         except Exception as exc:
             # Model not deployed: blocklist it so routing stops picking it, and
             # fail this task over to another live model rather than losing it.
+            # In probe mode (allow_failover=False) do neither -- report the
+            # error and let the caller own all availability bookkeeping.
             if _looks_like_model_unavailable(exc):
+                if not allow_failover:
+                    return _failure(str(exc))
                 mark_unavailable(model)
                 tried_models.add(model)
                 nxt = next((m for m in available_models() if m not in tried_models), None)
@@ -184,5 +199,6 @@ def _failure(error: str) -> dict:
         "prompt_tokens": 0,
         "completion_tokens": 0,
         "truncated": False,
+        "actual_model": "",
         "error": error,
     }

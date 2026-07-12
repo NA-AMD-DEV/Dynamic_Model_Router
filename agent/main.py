@@ -64,6 +64,16 @@ def run(tasks: list[dict]) -> dict[str, str]:
         tid = task.get("task_id") or f"__missing_{i}"
         results[tid] = FALLBACK
 
+    # Measure each live model's template cost ONCE, single-threaded, before
+    # any worker exists -- routing then prefers the leanest model. Also doubles
+    # as a warmup (absorbs cold starts) and self-heal (dead models 404 here,
+    # not on a scored task). Must never sink the run.
+    try:
+        from agent.config import calibrate_lean
+        calibrate_lean()
+    except Exception as exc:
+        print(f"lean calibration skipped: {exc!r}", file=sys.stderr)
+
     started = time.monotonic()
     try:
         if CONCURRENCY > 1:

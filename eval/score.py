@@ -21,6 +21,7 @@ import time
 from collections import defaultdict
 from pathlib import Path
 
+from agent.config import calibrate_lean, calibration_tokens
 from agent.core import answer_task_detailed
 from eval.judge import score_one
 
@@ -38,6 +39,14 @@ def load_eval_set(path: Path) -> list[dict]:
 
 
 def run(tasks: list[dict], gate: float) -> int:
+    # Same startup step the container performs: probe template costs once so
+    # routing prefers the leanest model. Probe tokens are REAL judged spend --
+    # counted into the reported total below, never hidden.
+    try:
+        calibrate_lean()
+    except Exception as exc:
+        print(f"lean calibration skipped: {exc!r}", file=sys.stderr)
+
     per_cat_correct: dict[str, int] = defaultdict(int)
     per_cat_total: dict[str, int] = defaultdict(int)
     per_cat_tokens: dict[str, int] = defaultdict(int)
@@ -126,12 +135,12 @@ def _print_report(correct, total, tokens, prompt_toks, compl_toks, trunc, latenc
     total_prompt = sum(prompt_toks.values())
     total_compl = sum(compl_toks.values())
     total_trunc = sum(trunc.values())
+    probe = calibration_tokens()
     print("\n=== summary ===")
     print(f"overall accuracy : {overall_acc:.0%}  ({total_correct}/{n})   gate proxy >= {gate:.0%}")
-    print(f"TOTAL tokens     : {total_tokens:,}   (ranking metric -- drive this down)")
-    print(f"  prompt         : {total_prompt:,}")
-    print(f"  completion     : {total_compl:,}   (possibly the real ranking metric -- "
-          "compare against the leaderboard after submitting)")
+    print(f"TOTAL tokens     : {total_tokens + probe:,}   (ranking metric -- drive this down)")
+    print(f"  tasks          : {total_tokens:,}  (prompt {total_prompt:,} + completion {total_compl:,})")
+    print(f"  calibration    : {probe:,}  (startup template probes -- real judged spend)")
     if total_trunc:
         print(f"truncated        : {total_trunc} answer(s) hit max_tokens -- billed tokens "
               "buying likely-wrong answers; raise those caps")

@@ -155,6 +155,78 @@ def pick_specialist(tag: str) -> str:
     return ""
 
 
+# --- lean calibration -------------------------------------------------------
+# The chat-template overhead differs WILDLY between models (measured: ~130-150
+# prompt tokens/task on one family vs ~40-56 on another, ~3x) and prompt tokens
+# dominate the bill. Which model is leanest can't be known from names, so we
+# MEASURE it: once at startup, one minimal probe per live model records its
+# fixed template cost, and general categories then route to the cheapest.
+#
+# Runs ONCE, single-threaded, from the entrypoint BEFORE any worker exists --
+# workers only ever read the result, so no lock is needed. Probe tokens are
+# real judged tokens: they accumulate in _calibration_tokens and eval.score
+# adds them to the reported total (never optimize against a fake number).
+_lean_ranking: list[str] | None = None
+_calibration_tokens = 0
+
+
+def calibration_tokens() -> int:
+    return _calibration_tokens
+
+
+def _error_says_unavailable(error: str) -> bool:
+    low = error.lower()
+    return "404" in error or "not_found" in low or "not deployed" in low or "inaccessible" in low
+
+
+def calibrate_lean() -> None:
+    """Measure each live model's fixed prompt-template cost and cache the
+    ranking (cheapest first). Call once at startup, before any worker thread.
+
+    Skips itself when there's no choice to make (<2 live models) or when local
+    inference is enabled (Fireworks probes would be irrelevant spend). A probe
+    failure never breaks routing: unprobeable models are just left out, and if
+    nothing was probed the lean ranking stays empty and tier resolution falls
+    back to capability ranking.
+    """
+    global _lean_ranking, _calibration_tokens
+    if _lean_ranking is not None:  # already calibrated this run
+        return
+    from agent.local_client import local_enabled  # lazy: avoid import cycle
+    if local_enabled():
+        return
+    models = available_models()
+    if len(models) < 2:
+        return
+
+    from agent.fireworks_client import call_model  # lazy: avoid import cycle
+    costs: list[tuple[int, str]] = []
+    for m in list(models):
+        # Probe mode: call exactly this model, no failover, no client-side
+        # bookkeeping -- a dead model must not get another model's numbers.
+        # reasoning_effort is left at the production default deliberately.
+        result = call_model("hi", "", m, 1, allow_failover=False)
+        _calibration_tokens += result["tokens"]
+        if result["error"] is not None:
+            if _error_says_unavailable(result["error"]):
+                mark_unavailable(m)  # startup is single-threaded: safe here
+            continue  # unprobeable: excluded from lean, capability still has it
+        costs.append((result["prompt_tokens"], m))
+    if costs:
+        costs.sort()
+        _lean_ranking = [m for _, m in costs]
+
+
+def pick_lean() -> str:
+    """The measured-leanest live model, or "" when calibration hasn't run /
+    found nothing (caller falls back to capability ranking)."""
+    if _lean_ranking:
+        for m in _lean_ranking:
+            if m not in _UNAVAILABLE:
+                return m
+    return ""
+
+
 def pick_capability(tier: str) -> str:
     """small | medium | large, chosen from ALLOWED_MODELS purely by relative
     capability signal in the ids themselves. Degrades gracefully as the list
@@ -236,10 +308,11 @@ _DEFAULTS: dict[str, _Default] = {
         0,
         # Real tasks may ask for an explanation ("...and briefly explain why").
         # "Answer only, no preamble" produced the generic answers the official
-        # FAQ warns about.
+        # FAQ warns about -- but unbounded explanations ran long and truncated
+        # at the cap (4/8 on the eval). The rubric says "briefly": bound it.
         "Answer the question directly and completely, including any explanation "
-        "it asks for. Be concise; no filler.",
-        250,
+        "it asks for, in at most 4 sentences. No filler.",
+        300,
         tier="small",
     ),
     "math_reasoning": _Default(
@@ -328,8 +401,11 @@ def config_for(category: str) -> Config:
     #   2. ROUTER_<CAT>_MODEL_INDEX -- an explicit index into ALLOWED_MODELS
     #   3. the category's specialist -- a code-tuned model for code categories,
     #                                   if the injected list actually has one
-    #   4. the category's tier      -- capability-ranked, else model_index
-    #   5. model_index default
+    #   4. measured-leanest model   -- when startup calibration ran (D2 showed
+    #                                   the leanest model also passes the gate
+    #                                   everywhere; specialists are eligible)
+    #   5. the category's tier      -- capability-ranked, else model_index
+    #   6. model_index default
     model = os.environ.get(_env_key(category, "MODEL"))
     if not model:
         if os.environ.get(_env_key(category, "MODEL_INDEX")) is not None:
@@ -337,7 +413,7 @@ def config_for(category: str) -> Config:
         elif spec.specialist and pick_specialist(spec.specialist):
             model = pick_specialist(spec.specialist)
         elif spec.tier:
-            model = pick_capability(spec.tier)
+            model = pick_lean() or pick_capability(spec.tier)
         else:
             model = pick_model(spec.model_index)
 
