@@ -24,7 +24,7 @@ def _zero_token(answer: str, category: str) -> dict:
     return {
         "answer": answer, "category": category, "tokens": 0,
         "prompt_tokens": 0, "completion_tokens": 0, "truncated": False,
-        "error": None,
+        "model": "", "error": None,
     }
 
 
@@ -93,5 +93,9 @@ def answer_task_detailed(task: dict) -> dict:
         "prompt_tokens": result["prompt_tokens"],
         "completion_tokens": result["completion_tokens"],
         "truncated": result["truncated"],
+        # cfg.model is what we ASKED for; call_model may have failed over to a
+        # different live model (see actual_model on its own return dict) --
+        # cfg.model is still the right diagnostic signal for "which tier fired".
+        "model": cfg.model,
         "error": result["error"],
     }

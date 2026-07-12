@@ -60,6 +60,10 @@ def run(tasks: list[dict], gate: float) -> int:
     total_latency = 0.0
     slowest = (0.0, "")  # (seconds, task_id) -- the per-request budget check
     errors: list[tuple[str, str]] = []
+    # A judge score of 0 with no error is a genuine "the model got it wrong" --
+    # previously invisible: only agent/judge EXCEPTIONS were ever printed, so a
+    # confidently-wrong-but-well-formed answer left zero diagnostic trace.
+    wrong: list[tuple[str, str, str, str]] = []  # (task_id, category, model, answer preview)
 
     for t in tasks:
         expected_cat = t["category"]
@@ -90,13 +94,19 @@ def run(tasks: list[dict], gate: float) -> int:
             errors.append((t["task_id"], f"truncated at max_tokens ({expected_cat})"))
         if detail["error"]:
             errors.append((t["task_id"], f"agent: {detail['error']}"))
-        if verdict["error"]:
+        elif verdict["error"]:
             errors.append((t["task_id"], f"judge: {verdict['error']}"))
+        elif not correct:
+            # A well-formed answer the judge simply disagreed with -- the
+            # genuinely diagnostic case. Chained as elif so an agent/judge
+            # ERROR (already shown above, answer is "") never double-lists here.
+            preview = detail["answer"][:160].replace("\n", " ")
+            wrong.append((t["task_id"], expected_cat, detail.get("model", ""), preview))
 
     _print_report(
         per_cat_correct, per_cat_total, per_cat_tokens,
         per_cat_prompt, per_cat_compl, per_cat_trunc, per_cat_latency,
-        routing_misses, errors, total_correct, len(tasks), total_tokens, gate,
+        routing_misses, errors, wrong, total_correct, len(tasks), total_tokens, gate,
         total_latency, slowest,
     )
 
@@ -106,7 +116,7 @@ def run(tasks: list[dict], gate: float) -> int:
 
 
 def _print_report(correct, total, tokens, prompt_toks, compl_toks, trunc, latency,
-                  routing_misses, errors, total_correct, n, total_tokens, gate,
+                  routing_misses, errors, wrong, total_correct, n, total_tokens, gate,
                   total_latency, slowest) -> None:
     print("\n=== per-category ===")
     print(f"{'category':<28} {'acc':>8} {'n':>4} {'tokens':>9} {'prompt':>8} "
@@ -130,6 +140,12 @@ def _print_report(correct, total, tokens, prompt_toks, compl_toks, trunc, latenc
         print("\n=== errors (agent/judge failures) ===")
         for tid, msg in errors:
             print(f"  {tid}: {msg}")
+
+    if wrong:
+        print(f"\n=== incorrect (judged wrong, no error -- {len(wrong)} task(s)) ===")
+        for tid, cat, model, preview in wrong:
+            print(f"  {tid} [{cat}] via {model or '(0-token solver)'}:")
+            print(f"    {preview!r}")
 
     overall_acc = total_correct / n if n else 0.0
     total_prompt = sum(prompt_toks.values())
