@@ -41,6 +41,20 @@ def test_detailed_seam_exposes_tokens_and_category(mock_client):
     assert detail["error"] is None
 
 
+def test_client_disables_sdk_retries(monkeypatch):
+    # The SDK's own default retries (2, each with a fresh REQUEST_TIMEOUT_S
+    # and backoff) stack invisibly under call_model's own retry loop -- a
+    # single logical attempt could balloon to ~3x the intended timeout before
+    # our retry logic even runs, and our retry then does it again. Measured:
+    # one task hit 154s this way (5x the 30s hard per-request limit).
+    monkeypatch.setenv("FIREWORKS_API_KEY", "k")
+    monkeypatch.setenv("FIREWORKS_BASE_URL", "https://example.test")
+    monkeypatch.setattr(fc, "_client", None)
+    with patch("agent.fireworks_client.OpenAI") as MockOpenAI:
+        fc._get_client()
+        assert MockOpenAI.call_args.kwargs["max_retries"] == 0
+
+
 def test_temperature_defaults_to_zero_for_run_to_run_consistency(monkeypatch):
     # 0.2 let the SAME prompt sample a different completion each run --
     # invisible everywhere except summarisation's exact-format rubric, where

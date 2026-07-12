@@ -40,7 +40,17 @@ def _get_client() -> OpenAI:
         base_url = os.environ.get("FIREWORKS_BASE_URL")
         if not api_key or not base_url:
             raise RuntimeError("FIREWORKS_API_KEY and FIREWORKS_BASE_URL must be set")
-        _client = OpenAI(api_key=api_key, base_url=base_url, timeout=REQUEST_TIMEOUT_S)
+        # max_retries=0: call_model already implements its own retry budgets
+        # (transient, param-rejection, model-failover). The SDK's default
+        # (2 internal retries, each with its own fresh REQUEST_TIMEOUT_S and
+        # backoff) stacks invisibly UNDER our retry loop -- one call_model
+        # attempt could balloon to ~3x REQUEST_TIMEOUT_S before our own retry
+        # even sees an exception, and our retry then does it again. Measured:
+        # a single task hit 154s (5x the 30s hard per-request limit) this way.
+        _client = OpenAI(
+            api_key=api_key, base_url=base_url,
+            timeout=REQUEST_TIMEOUT_S, max_retries=0,
+        )
     return _client
 
 
