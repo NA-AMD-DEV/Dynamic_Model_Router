@@ -327,6 +327,11 @@ _DEFAULTS: dict[str, _Default] = {
         "final answer(s) clearly.",
         300,
         tier="large",  # solver handles the trivial residue; the rest is hard
+        # lean_ok defaults True, which would route this residue to the
+        # CHEAPEST model -- backwards: a solver defer means the case was hard
+        # enough to need the model at all, so it deserves the strongest one,
+        # not the leanest. Pin off lean explicitly.
+        lean_ok=False,
     ),
     "sentiment_classification": _Default(
         0,
@@ -390,6 +395,8 @@ _DEFAULTS: dict[str, _Default] = {
         "brief justification only if the prompt asks for one.",
         200,
         tier="large",  # solver handles the trivial residue; the rest is hard
+        lean_ok=False,  # see math_reasoning: solver-defer residue is the hard
+        # case by construction -- route it to the strongest model, not leanest.
     ),
     "code_generation": _Default(
         0,

@@ -78,6 +78,24 @@ def test_lean_pinned_category_stays_on_capability_pick(monkeypatch):
     assert config_for("sentiment_classification").model == "kimi-k2p7-code"
 
 
+def test_math_and_logic_residue_stays_off_lean(monkeypatch):
+    # A solver defer means the case was too hard to answer at 0 tokens -- by
+    # construction the residue deserves the strongest model, not the cheapest.
+    # lean_ok=False on both keeps them on the capability-ranked pick even
+    # though kimi-k2p7-code measures leaner.
+    monkeypatch.setenv("ALLOWED_MODELS", "minimax-m3, kimi-k2p7-code")
+    costs = {"minimax-m3": 137, "kimi-k2p7-code": 42}
+    monkeypatch.setattr(fc, "call_model",
+                        lambda p, s, model, m, **kw: _probe_result(costs[model]))
+    calibrate_lean()
+    assert pick_lean() == "kimi-k2p7-code"                          # lean exists...
+    assert config_for("math_reasoning").model == "minimax-m3"       # ...but pinned
+    assert config_for("logical_reasoning").model == "minimax-m3"    # ...both pinned
+    # Code categories are unaffected -- they resolve via the specialist rule,
+    # not the tier/lean path, so they still get the code-tuned model.
+    assert config_for("code_generation").model == "kimi-k2p7-code"
+
+
 def test_calibration_skipped_with_fewer_than_two_live_models(monkeypatch):
     monkeypatch.setenv("ALLOWED_MODELS", "only-model")
     called = []
