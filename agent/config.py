@@ -343,9 +343,18 @@ _DEFAULTS: dict[str, _Default] = {
         0,
         # Official rubric fails any deviation from the requested format
         # ("exactly two sentences", "exactly three bullets, each <=15 words").
-        "Obey the prompt's format constraint EXACTLY (sentence count, bullet "
-        "count, word limits). Cover the key points from all sides of the text. "
-        "Output ONLY the summary.",
+        # MEASURED failure mode (2 tasks, reproducible at temperature=0): the
+        # model satisfies the COUNT by cramming units onto one line/sentence
+        # instead of genuinely separating them -- "- bullet one. - bullet two."
+        # on a single line, or two ideas merged into one sentence with "but".
+        # "Obey exactly" alone doesn't tell it HOW; spell out the mechanics.
+        "Obey the prompt's format constraint EXACTLY. For bullet points: put "
+        "EACH bullet on its own line starting with '- ', one bullet per "
+        "requested point, within the word limit. For a sentence count: write "
+        "that many separate, complete sentences, each ending in its own "
+        "period -- never merge two ideas into one sentence with 'and', 'but', "
+        "or a semicolon. Cover the key points from all sides of the text "
+        "within that structure. Output ONLY the summary.",
         # Cap 200 truncated verbose summaries mid-generation (measured: 6/8
         # truncated -> 25%). A truncated summary is definitely wrong. 800 gives
         # headroom; unused cap costs nothing (the model stops when done).
