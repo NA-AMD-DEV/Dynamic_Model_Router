@@ -42,8 +42,10 @@ def _int_env(name: str, fallback: int) -> int:
 
 
 # Enough room for a reasoning model to think and then emit its verdict. Override
-# via JUDGE_MAX_TOKENS. Judge cost is local-only, so err generous, not stingy.
-JUDGE_MAX_TOKENS = _int_env("JUDGE_MAX_TOKENS", 2000)
+# via JUDGE_MAX_TOKENS. Judge tokens don't count toward the competition ranking,
+# but they DO spend real Fireworks credits on the shared key -- 2000 was
+# wasteful; 800 measured with no verdict truncations across the eval set.
+JUDGE_MAX_TOKENS = _int_env("JUDGE_MAX_TOKENS", 800)
 
 _JUDGE_SYSTEM = (
     "You are a strict grader. You are given a QUESTION, the EXPECTED INTENT of a "
@@ -93,7 +95,9 @@ def score_one(prompt: str, expected_intent: str, candidate: str) -> dict:
 
     # The verdict is the LAST 0/1 the model emits -- a reasoning model produces
     # the digit after its thinking, and stray 0/1 may appear mid-reasoning.
-    digits = re.findall(r"[01]", result["answer"])
+    # \b...\b so a digit embedded in a larger number ("about 10") isn't grabbed
+    # as a verdict -- only a standalone 0 or 1 counts.
+    digits = re.findall(r"\b[01]\b", result["answer"])
     if not digits:
         # Model answered but never produced a verdict digit (e.g. ran out of
         # room mid-reasoning). Surface it rather than silently scoring 0.

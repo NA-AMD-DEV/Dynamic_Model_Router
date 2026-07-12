@@ -346,7 +346,10 @@ _DEFAULTS: dict[str, _Default] = {
         "Obey the prompt's format constraint EXACTLY (sentence count, bullet "
         "count, word limits). Cover the key points from all sides of the text. "
         "Output ONLY the summary.",
-        200,
+        # Cap 200 truncated verbose summaries mid-generation (measured: 6/8
+        # truncated -> 25%). A truncated summary is definitely wrong. 800 gives
+        # headroom; unused cap costs nothing (the model stops when done).
+        800,
         tier="medium",
         # MEASURED: the lean (code-tuned) model scored 62% here -- it misses
         # exact-format constraints -- while the capability pick scored 100%.

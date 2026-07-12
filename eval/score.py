@@ -169,8 +169,10 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="Score the agent over the eval set.")
     ap.add_argument("--eval-set", type=Path, default=EVAL_SET)
     ap.add_argument("--gate", type=float, default=0.9,
-                    help="proxy accuracy threshold for a non-zero exit (default 0.9: "
-                         "the target gate is 85%% and this proxy needs margin)")
+                    help="proxy accuracy threshold for a non-zero exit (default 0.9). "
+                         "The REAL organizer gate is 80%% (confirmed); 0.9 is a "
+                         "conservative proxy, so a printed 'BELOW GATE' between "
+                         "80-90%% may already be passing the real thing.")
     args = ap.parse_args()
 
     tasks = load_eval_set(args.eval_set)
