@@ -29,9 +29,19 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 # credentials from os.environ (that's the real container's contract too) --
 # bridge them BEFORE importing agent.core, since config resolution happens
 # at call time but the client needs the key/base_url present either way.
+#
+# os.environ only accepts strings. A secret entered as a TOML array (e.g.
+# ALLOWED_MODELS = ["model-a", "model-b"]) comes back from st.secrets as a
+# list, and assigning a list into os.environ crashes the whole app with an
+# opaque TypeError inside os.encode. Coerce defensively: join sequences with
+# a comma (our own parser already accepts comma-separated), str() anything
+# else, so a formatting slip in Secrets degrades, never crashes the page.
 for key in ("FIREWORKS_API_KEY", "FIREWORKS_BASE_URL", "ALLOWED_MODELS", "JUDGE_MODEL"):
     if key in st.secrets and key not in os.environ:
-        os.environ[key] = st.secrets[key]
+        value = st.secrets[key]
+        if isinstance(value, (list, tuple)):
+            value = ",".join(str(v) for v in value)
+        os.environ[key] = str(value)
 
 from agent.config import calibrate_lean, CATEGORIES  # noqa: E402
 from agent.core import answer_task_detailed  # noqa: E402
