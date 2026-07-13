@@ -337,13 +337,18 @@ _DEFAULTS: dict[str, _Default] = {
         # verbose derivations waste tokens.
         "Solve carefully step by step. Show only brief working, then state the "
         "final answer(s) clearly.",
-        300,
+        # Headroom: a hard multi-step problem's working can run long; clipping it
+        # before the final answer scores wrong. Cap only costs tokens if hit.
+        448,
         tier="large",  # solver handles the trivial residue; the rest is hard
-        # lean_ok defaults True, which would route this residue to the
-        # CHEAPEST model -- backwards: a solver defer means the case was hard
-        # enough to need the model at all, so it deserves the strongest one,
-        # not the leanest. Pin off lean explicitly.
-        lean_ok=False,
+        # lean_ok stays True (the default): the earlier reasoning was that a
+        # solver-defer residue is "hard, so use the strongest model" -- but the
+        # capability pick (minimax-m3) is BOTH ~3x fatter on prompt tokens AND
+        # the flakier model (it timed out twice in the last eval, failing over
+        # to kimi anyway). Routing to the measured-leanest model instead cuts
+        # ~95 prompt tok/task and drops the timeout dependence, VALIDATED by
+        # eval.score holding accuracy. Flip back to False if a re-measure shows
+        # the lean model missing the gate here.
     ),
     "sentiment_classification": _Default(
         0,
@@ -353,7 +358,9 @@ _DEFAULTS: dict[str, _Default] = {
         "Give the sentiment label the prompt asks for, then a one-sentence "
         "reason. If the text mixes positive and negative aspects, acknowledge "
         "both in the reason and prefer 'mixed' or 'neutral' over one-sided labels.",
-        80,
+        # Headroom: a thorough two-sided reason can run long; 80 could clip it
+        # mid-sentence (a truncated reason fails the "acknowledge both" rubric).
+        128,
         tier="small",
     ),
     "summarisation": _Default(
@@ -388,7 +395,9 @@ _DEFAULTS: dict[str, _Default] = {
         "Extract ALL named entities. Label each as PERSON, ORGANIZATION, "
         "LOCATION, or DATE (or the labels the prompt requests), one "
         "'LABEL: value' per line. Miss nothing; no prose.",
-        150,
+        # Headroom: an entity-dense passage yields many lines; 150 could clip
+        # the list and drop entities -> fails the "every entity present" rubric.
+        256,
         tier="small",
     ),
     "code_debugging": _Default(
@@ -397,7 +406,9 @@ _DEFAULTS: dict[str, _Default] = {
         # corrected code mandatory, allow a brief why only when asked.
         "Fix the code. Return the corrected, complete code in one code block; "
         "add a brief explanation only if the prompt asks why.",
-        400,
+        # Headroom: corrected code + a brief 'why' can exceed 400 on a longer
+        # function; truncated code is broken code -> wrong.
+        576,
         tier="medium",
         specialist="code",
     ),
@@ -405,16 +416,21 @@ _DEFAULTS: dict[str, _Default] = {
         0,
         "Reason carefully internally. State the final answer clearly; add a "
         "brief justification only if the prompt asks for one.",
-        200,
+        # Headroom: a multi-constraint puzzle's justification can run long;
+        # clipping before the stated answer scores wrong.
+        320,
         tier="large",  # solver handles the trivial residue; the rest is hard
-        lean_ok=False,  # see math_reasoning: solver-defer residue is the hard
-        # case by construction -- route it to the strongest model, not leanest.
+        # lean_ok stays True: see math_reasoning -- the leanest model is cheaper
+        # AND more reliable than the flaky capability pick; keep only while
+        # eval.score confirms accuracy holds here.
     ),
     "code_generation": _Default(
         0,
         "Write the requested code. Return the complete implementation in one "
         "code block; add a brief explanation only if the prompt asks for one.",
-        400,
+        # Headroom: a full implementation of a non-trivial function can exceed
+        # 400; truncated code is broken code -> wrong.
+        576,
         tier="medium",
         specialist="code",
     ),

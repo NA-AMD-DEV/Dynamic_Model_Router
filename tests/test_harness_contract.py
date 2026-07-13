@@ -234,8 +234,11 @@ def test_model_index_clamps_rather_than_crashing(monkeypatch):
 
 
 def test_unparseable_override_falls_back_to_default(monkeypatch):
+    # Compare against the actual default rather than a magic number, so tuning
+    # a cap doesn't break this test (it's about the fallback, not the value).
+    from agent.config import _DEFAULTS
     monkeypatch.setenv("ROUTER_CODE_GENERATION_MAX_TOKENS", "not-a-number")
-    assert config_for("code_generation").max_tokens == 400
+    assert config_for("code_generation").max_tokens == _DEFAULTS["code_generation"].max_tokens
 
 
 def test_max_tokens_override_applies(monkeypatch):
